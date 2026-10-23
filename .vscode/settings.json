@@ -1,0 +1,12 @@
+{
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    ".gitignore": ".gitattributes, .gitmodules",
+    "*.slnx": ".editorconfig, Directory.Build.props, Directory.Packages.props, global.json",
+    "*.csproj": "${capture}.Package.props",
+    "readme.md": "agents.md, changelog.md, license.md",
+  },
+  "dotnet.server.environmentVariables": {
+    "DOTNET_ROLL_FORWARD": "LatestMajor"
+  }
+}

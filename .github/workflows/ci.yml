@@ -1,0 +1,156 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+
+      - name: setup dotnet
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+
+      - name: restore
+        run: >
+          dotnet restore
+
+      - name: build
+        run: >
+          dotnet build
+          --no-restore
+          --binaryLogger:${{ github.run_id }}-${{ github.run_attempt }}-windows.binlog
+
+      - name: upload binlog
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: binlog-windows
+          path: "*.binlog"
+
+      - name: test
+        run: >
+          dotnet test
+          --no-build
+
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+
+      - name: setup dotnet
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            10.0.x
+            11.0.x
+
+      - name: restore
+        run: >
+          dotnet restore
+
+      - name: build
+        run: >
+          dotnet build
+          --no-restore
+          --binaryLogger:${{ github.run_id }}-${{ github.run_attempt }}-linux.binlog
+
+      - name: upload binlog
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: binlog-linux
+          path: "*.binlog"
+
+      - name: test
+        run: >
+          dotnet test
+          --no-build
+
+      - name: run samples
+        shell: bash
+        run: >
+          for sample in samples/*/; do
+          [ -d "$sample" ] || continue;
+          (cd "$sample" && bash expected.sh) || exit 1;
+          done
+
+      - name: check sample output
+        run: >
+          git diff --exit-code -- samples
+
+  style-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+
+      - name: encoding
+        shell: bash
+        run: |
+          status=0
+
+          while IFS=$'\t' read -r info path; do
+            index=${info%% *}
+
+            # Fails on a file git takes for binary because git never normalizes its line endings.
+            if [ "$index" = "i/-text" ]; then
+              echo "$path: git takes it for binary, not for text."
+              status=1
+              continue
+            fi
+
+            if [ "$(head -c 3 "$path" | od -An -tx1 | tr -d ' ')" = "efbbbf" ]; then
+              echo "$path: starts with a UTF-8 byte order mark."
+              status=1
+            fi
+
+            if ! iconv -f UTF-8 -t UTF-8 "$path" > /dev/null 2>&1; then
+              echo "$path: is not valid UTF-8."
+              status=1
+            fi
+          done < <(git -c core.quotepath=off ls-files --eol)
+
+          exit $status
+
+      - name: setup dotnet
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            11.0.x
+
+      - name: restore
+        run: >
+          dotnet restore
+
+      - name: format
+        run: >
+          dotnet format
+          --no-restore
+          --severity info
+          --verify-no-changes
+
+      - name: format samples
+        shell: bash
+        run: >
+          for entry in samples/*/*.cs; do
+          [ -f "$entry" ] || continue;
+          head -1 "$entry" | grep -q '^#!' || continue;
+          dotnet format "$entry" --severity info --verify-no-changes || exit 1;
+          done
