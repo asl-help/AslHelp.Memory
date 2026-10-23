@@ -10,7 +10,7 @@ namespace AslHelp.Memory;
 ///     Arithmetic wraps around at the ends of the 64-bit range.
 /// </remarks>
 /// <param name="Value">The address as an unsigned 64-bit number.</param>
-public readonly record struct Address(ulong Value) : IComparable<Address>
+public readonly record struct Address(ulong Value) : IComparable<Address>, IComparable, IFormattable
 {
     /// <summary>
     ///     Gets the address 0.
@@ -41,6 +41,19 @@ public readonly record struct Address(ulong Value) : IComparable<Address>
     public static Address operator -(Address address, long offset)
     {
         return new(unchecked(address.Value - (ulong)offset));
+    }
+
+    /// <summary>
+    ///     Gets the number of bytes from <paramref name="right"/> to <paramref name="left"/>.
+    /// </summary>
+    /// <param name="left">The address to measure to.</param>
+    /// <param name="right">The address to measure from.</param>
+    /// <returns>
+    ///     The distance in bytes, negative when <paramref name="left"/> is lower than <paramref name="right"/>.
+    /// </returns>
+    public static long operator -(Address left, Address right)
+    {
+        return unchecked((long)(left.Value - right.Value));
     }
 
     /// <summary>
@@ -131,6 +144,20 @@ public readonly record struct Address(ulong Value) : IComparable<Address>
         return Value.CompareTo(other.Value);
     }
 
+    /// <inheritdoc/>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="obj"/> isn't an <see cref="Address"/>.
+    /// </exception>
+    int IComparable.CompareTo(object? obj)
+    {
+        return obj switch
+        {
+            null => 1,
+            Address other => CompareTo(other),
+            _ => throw new ArgumentException($"The object isn't an {nameof(Address)}.", nameof(obj)),
+        };
+    }
+
     /// <summary>
     ///     Formats the address as <c>0x</c> followed by uppercase hex, as in <c>0x7FF6A000</c>.
     /// </summary>
@@ -139,6 +166,73 @@ public readonly record struct Address(ulong Value) : IComparable<Address>
     /// </returns>
     public override string ToString()
     {
-        return "0x" + Value.ToString("X", CultureInfo.InvariantCulture);
+        return ToString(null, null);
+    }
+
+    /// <summary>
+    ///     Formats the address's value with <paramref name="format"/>, as in <c>X8</c> for <c>7FF6A000</c>.
+    /// </summary>
+    /// <param name="format">
+    ///     A numeric format for the value. <see langword="null"/> or empty formats as <see cref="ToString()"/> does.
+    /// </param>
+    /// <param name="formatProvider">The culture information. <see langword="null"/> uses the invariant culture.</param>
+    /// <returns>
+    ///     The formatted address.
+    /// </returns>
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        formatProvider ??= CultureInfo.InvariantCulture;
+
+        return string.IsNullOrEmpty(format)
+            ? "0x" + Value.ToString("X", formatProvider)
+            : Value.ToString(format, formatProvider);
+    }
+
+    /// <summary>
+    ///     Parses <paramref name="text"/> as an address written as <c>0x</c> hex or as a decimal number.
+    /// </summary>
+    /// <param name="text">The text to parse, such as <c>0x7FF6A000</c>.</param>
+    /// <returns>
+    ///     The address.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="text"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="FormatException">
+    ///     <paramref name="text"/> isn't an address.
+    /// </exception>
+    public static Address Parse(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        return TryParse(text, out var address)
+            ? address
+            : throw new FormatException($"'{text}' isn't an address. An address is 0x followed by hex or a decimal number.");
+    }
+
+    /// <summary>
+    ///     Tries to parse <paramref name="text"/> as an address written as <c>0x</c> hex or as a decimal number.
+    /// </summary>
+    /// <param name="text">The text to parse, such as <c>0x7FF6A000</c>.</param>
+    /// <param name="address">The address, when <paramref name="text"/> is one.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="text"/> is an address and <see langword="false"/> otherwise.
+    /// </returns>
+    public static bool TryParse(string? text, out Address address)
+    {
+        address = default;
+
+        if (text is null)
+        {
+            return false;
+        }
+
+        bool parsed = text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            ? ulong.TryParse(text[2..], NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out ulong value)
+            : ulong.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value);
+
+        address = new(value);
+
+        return parsed;
     }
 }

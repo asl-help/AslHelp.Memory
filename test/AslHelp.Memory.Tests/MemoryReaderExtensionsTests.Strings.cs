@@ -36,30 +36,30 @@ public partial class MemoryReaderExtensionsTests
         }
     }
 
-    // ReadTerminatedString stops at the terminator.
+    // ReadString stops at the terminator.
     [Test]
-    public void ReadTerminatedString_Utf16BigEndian_StopsAtTheTerminator()
+    public void ReadString_Utf16BigEndian_StopsAtTheTerminator()
     {
         BufferMemory memory = new(Base, [0, (byte)'o', 0, (byte)'k', 0, 0], MemoryLayout.BigEndian32);
 
-        Assert.That(memory.ReadTerminatedString(new Address(Base), StringType.Utf16, 3).Unwrap(), Is.EqualTo("ok"));
+        Assert.That(memory.ReadString(new Address(Base), StringType.Utf16, 3).Unwrap(), Is.EqualTo("ok"));
     }
 
-    // ReadTerminatedString returns an error when no terminator comes within the bound.
+    // ReadString returns an error when no terminator comes within the bound.
     [Test]
-    public void ReadTerminatedString_NoTerminatorWithinTheBound_ReturnsAnError()
+    public void ReadString_NoTerminatorWithinTheBound_ReturnsAnError()
     {
         BufferMemory memory = new(Base, [(byte)'a', (byte)'b', (byte)'c', (byte)'d', 0], MemoryLayout.X86);
 
-        Assert.That(memory.ReadTerminatedString(new Address(Base), StringType.Ascii, 3).IsErr, Is.True);
+        Assert.That(memory.ReadString(new Address(Base), StringType.Ascii, 3).IsErr, Is.True);
     }
 
-    // ReadTerminatedString reads a string that ends close to the end of readable memory.
+    // ReadString reads a string that ends close to the end of readable memory.
     [Test]
-    public void ReadTerminatedString_NearTheEnd_ReadsTheString()
+    public void ReadString_NearTheEnd_ReadsTheString()
     {
         BufferMemory memory = new(Base, [(byte)'x', 0], MemoryLayout.X86);
 
-        Assert.That(memory.ReadTerminatedString(new Address(Base), StringType.Utf8).Unwrap(), Is.EqualTo("x"));
+        Assert.That(memory.ReadString(new Address(Base), StringType.Utf8).Unwrap(), Is.EqualTo("x"));
     }
 }

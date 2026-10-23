@@ -7,7 +7,7 @@ namespace AslHelp.Memory;
 public static partial class MemoryReaderExtensions
 {
     /// <summary>
-    ///     The number of units <c>ReadTerminatedString</c> reads before the terminator when no maximum is given.
+    ///     The number of units the null-terminated <c>ReadString</c> reads before the terminator when no maximum is given.
     /// </summary>
     public const int DefaultMaxChars = 512;
 
@@ -74,7 +74,7 @@ public static partial class MemoryReaderExtensions
         /// <exception cref="ArgumentOutOfRangeException">
         ///     <paramref name="maxLength"/> is negative or <paramref name="type"/> isn't a defined value.
         /// </exception>
-        public Result<string> ReadTerminatedString(Address address, StringType type, int maxLength = DefaultMaxChars)
+        public Result<string> ReadString(Address address, StringType type, int maxLength = DefaultMaxChars)
         {
             ArgumentNullException.ThrowIfNull(reader);
             ArgumentOutOfRangeException.ThrowIfNegative(maxLength);
