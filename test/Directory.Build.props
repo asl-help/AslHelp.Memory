@@ -1,0 +1,10 @@
+<Project>
+
+  <Import Project="../Directory.Build.props" />
+
+  <PropertyGroup>
+    <TargetFrameworks>net11.0</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('Windows'))">net4.8.1;net11.0</TargetFrameworks>
+  </PropertyGroup>
+
+</Project>

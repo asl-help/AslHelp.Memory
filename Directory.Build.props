@@ -1,0 +1,47 @@
+<Project>
+
+  <!-- Shared paths. -->
+  <PropertyGroup>
+    <RootPath>$(MSBuildThisFileDirectory)</RootPath>
+
+    <SrcPath>$(RootPath)/src</SrcPath>
+    <TestPath>$(RootPath)/test</TestPath>
+
+    <ArtifactsPath>$(RootPath)/artifacts</ArtifactsPath>
+    <_PackageProps>$(MSBuildProjectDirectory)/$(MSBuildProjectName).Package.props</_PackageProps>
+  </PropertyGroup>
+
+  <!-- Shared properties. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <LangVersion>preview</LangVersion>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Nullable>enable</Nullable>
+
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="$(MSBuildProjectName).Tests" />
+  </ItemGroup>
+
+  <!-- Packaging. -->
+  <PropertyGroup Condition="Exists('$(_PackageProps)')">
+    <IsPackable>true</IsPackable>
+
+    <Authors>ero</Authors>
+    <RepositoryUrl>https://github.com/asl-help/AslHelp.Memory</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <PackageReleaseNotes>$(RepositoryUrl)/blob/main/changelog.md</PackageReleaseNotes>
+
+    <PackageLicenseExpression>0BSD</PackageLicenseExpression>
+    <PackageReadmeFile>readme.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <Import Condition="Exists('$(_PackageProps)')" Project="$(_PackageProps)" />
+
+</Project>
