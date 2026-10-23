@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <Description>Memory reads for asl-help: addresses, pointer chains and strings in any pointer size and byte order.</Description>
+    <PackageTags>memory process</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(RootPath)/readme.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

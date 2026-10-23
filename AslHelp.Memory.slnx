@@ -7,4 +7,12 @@
     <File Path="global.json" />
   </Folder>
 
+  <Folder Name="/src/">
+    <Project Path="src/AslHelp.Memory/AslHelp.Memory.csproj" />
+  </Folder>
+
+  <Folder Name="/test/">
+    <Project Path="test/AslHelp.Memory.Tests/AslHelp.Memory.Tests.csproj" />
+  </Folder>
+
 </Solution>

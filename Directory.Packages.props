@@ -5,6 +5,11 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
+  <!-- AslHelp packages. -->
+  <ItemGroup>
+    <PackageVersion Include="AslHelp.Shared" Version="0.1.0-alpha.2" />
+  </ItemGroup>
+
   <!-- Shared package versions. -->
   <ItemGroup>
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
