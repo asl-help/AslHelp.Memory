@@ -214,7 +214,6 @@ public static class PeReaderExtensions
                 entriesOffset = optionalOffset + (ulong)Unsafe.SizeOf<ImageOptionalHeader32>();
                 break;
             }
-
             case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
             {
                 var optional = ReadImage<ImageOptionalHeader64>(reader, module, optionalOffset);
@@ -227,9 +226,10 @@ public static class PeReaderExtensions
                 entriesOffset = optionalOffset + (ulong)Unsafe.SizeOf<ImageOptionalHeader64>();
                 break;
             }
-
             default:
+            {
                 return PeError.UnknownMagic(module.Name, ntHeaders.Magic);
+            }
         }
 
         if (index >= entryCount)
