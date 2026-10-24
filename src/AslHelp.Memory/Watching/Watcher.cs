@@ -14,7 +14,8 @@ public abstract class Watcher
     private readonly ITickCounter _ticks;
     private readonly IMemoryReader _reader;
 
-    private long _readTick = -1;
+    private bool _isFresh;
+    private long _readTick;
     private ExceptionDispatchInfo? _failure;
 
     /// <summary>
@@ -35,9 +36,25 @@ public abstract class Watcher
     }
 
     /// <summary>
-    ///     Gets or sets a value indicating whether the watcher reads. A disabled watcher keeps its values.
+    ///     Gets or sets a value indicating whether the watcher reads. A disabled watcher keeps its values and reports
+    ///     no change.
     /// </summary>
-    public bool Enabled { get; set; } = true;
+    /// <remarks>
+    ///     Enabling a watcher drops this tick's read, so the next access reads in the same tick.
+    /// </remarks>
+    public bool Enabled
+    {
+        get;
+        set
+        {
+            if (value && !field)
+            {
+                Invalidate();
+            }
+
+            field = value;
+        }
+    } = true;
 
     /// <summary>
     ///     Gets or sets what happens to the values when a read fails.
@@ -55,17 +72,19 @@ public abstract class Watcher
     protected void EnsureFresh()
     {
         long tick = _ticks.Value;
-        if (_readTick == tick)
+        if (_isFresh && _readTick == tick)
         {
             _failure?.Throw();
             return;
         }
 
+        _isFresh = true;
         _readTick = tick;
         _failure = null;
 
         if (!Enabled)
         {
+            Skip();
             return;
         }
 
@@ -89,9 +108,11 @@ public abstract class Watcher
     /// </remarks>
     protected void Invalidate()
     {
-        _readTick = -1;
+        _isFresh = false;
         _failure = null;
     }
 
     private protected abstract void Refresh(IMemoryReader reader);
+
+    private protected abstract void Skip();
 }

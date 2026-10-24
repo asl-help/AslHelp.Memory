@@ -136,6 +136,11 @@ public abstract class Watcher<T>(
         return path.ToString();
     }
 
+    private protected sealed override void Skip()
+    {
+        Changed = false;
+    }
+
     private protected sealed override void Refresh(IMemoryReader reader)
     {
         if (Read(reader).TryUnwrap(out var value, out var error))

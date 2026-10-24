@@ -277,6 +277,62 @@ public partial class WatcherTests
         }
     }
 
+    // A disabled watcher keeps its values but reports no change.
+    [Test]
+    public void Changed_DisabledAfterAChange_IsFalse()
+    {
+        var memory = Memory(5);
+        ManualTicks ticks = new();
+
+        MemoryWatcher<int> watcher = new(ticks, memory, Address.Zero);
+        _ = watcher.Current;
+
+        ticks.Value++;
+        Write(memory, 9);
+        _ = watcher.Current;
+
+        watcher.Enabled = false;
+        ticks.Value++;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(watcher.Changed, Is.False);
+            Assert.That(watcher.ChangedTo(9), Is.False);
+            Assert.That(watcher.Old, Is.EqualTo(5));
+            Assert.That(watcher.Current, Is.EqualTo(9));
+        }
+    }
+
+    // Enabling a watcher reads again in the same tick.
+    [Test]
+    public void Current_EnabledInTheSameTick_Reads()
+    {
+        CountingMemory memory = new(Memory(5));
+        ManualTicks ticks = new();
+
+        MemoryWatcher<int> watcher = new(ticks, memory, Address.Zero) { Enabled = false };
+        _ = watcher.Current;
+
+        watcher.Enabled = true;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(watcher.Current, Is.EqualTo(5));
+            Assert.That(memory.Reads, Is.EqualTo(1));
+        }
+    }
+
+    // A tick counter at -1 still gets a first read.
+    [Test]
+    public void Current_TickMinusOne_Reads()
+    {
+        ManualTicks ticks = new() { Value = -1 };
+
+        MemoryWatcher<int> watcher = new(ticks, Memory(5), Address.Zero);
+
+        Assert.That(watcher.Current, Is.EqualTo(5));
+    }
+
     // A pointer path is followed before the value is read.
     [Test]
     public void Current_APointerPath_ReadsAtItsEnd()
