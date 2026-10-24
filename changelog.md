@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1] - 2026-10-25
+
 ### Added
 - `Address` for an address in a target's memory, with offset arithmetic, distances, comparison, `0x` hex formatting and parsing.
 - `MemoryRange` for a contiguous range of bytes with its `End` and a `Contains` check.
@@ -30,4 +32,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `FailAction` for what a watcher does when a read fails: clear its values, keep them or throw with the error of the read.
 - `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.
 
-[Unreleased]: https://github.com/asl-help/AslHelp.Memory/commits/main
+[Unreleased]: https://github.com/asl-help/AslHelp.Memory/compare/0.1.0-alpha.1...HEAD
+[0.1.0-alpha.1]: https://github.com/asl-help/AslHelp.Memory/releases/tag/0.1.0-alpha.1
