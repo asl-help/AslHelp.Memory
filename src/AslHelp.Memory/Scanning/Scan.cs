@@ -234,6 +234,21 @@ public static class Scan
         return Result.Ok(Ranges(reader, ranges.Unwrap(), steps));
     }
 
+    /// <summary>
+    ///     Runs <paramref name="step"/> as if the previous step matched at <paramref name="anchor"/>.
+    /// </summary>
+    /// <param name="reader">The memory to read from.</param>
+    /// <param name="range">The bytes a step without a window searches. A window is clamped to them.</param>
+    /// <param name="step">The step to run.</param>
+    /// <param name="anchor">The address the step's window starts or ends at, inside <paramref name="range"/>.</param>
+    /// <returns>
+    ///     The addresses the step returns.
+    /// </returns>
+    internal static IEnumerable<Address> From(IMemoryReader reader, MemoryRange range, ScanStep step, Address anchor)
+    {
+        return Fold(reader, range, [step], 0, anchor);
+    }
+
     private static Result<IEnumerable<MemoryRange>> ReadableRanges<TReader>(TReader reader)
         where TReader : IMemoryRegionProvider
     {
