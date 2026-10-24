@@ -122,8 +122,11 @@ public static class Scan
     }
 
     /// <summary>
-    ///     Searches each readable region of <paramref name="reader"/> for <paramref name="pattern"/>.
+    ///     Searches the readable regions of <paramref name="reader"/> for <paramref name="pattern"/>.
     /// </summary>
+    /// <remarks>
+    ///     Adjacent readable regions are searched as 1 range, so a match that spans 2 of them is found.
+    /// </remarks>
     /// <typeparam name="TReader">The type of memory that reads bytes and lists its regions.</typeparam>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="pattern">The pattern to search for.</param>
@@ -199,8 +202,11 @@ public static class Scan
     }
 
     /// <summary>
-    ///     Runs <paramref name="steps"/> over each readable region of <paramref name="reader"/>.
+    ///     Runs <paramref name="steps"/> over the readable regions of <paramref name="reader"/>.
     /// </summary>
+    /// <remarks>
+    ///     Adjacent readable regions are searched as 1 range, so a match that spans 2 of them is found.
+    /// </remarks>
     /// <typeparam name="TReader">The type of memory that reads bytes and lists its regions.</typeparam>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="steps">The steps to run in order.</param>
@@ -228,7 +234,7 @@ public static class Scan
         return Result.Ok(Ranges(reader, ranges.Unwrap(), steps));
     }
 
-    private static Result<List<MemoryRange>> ReadableRanges<TReader>(TReader reader)
+    private static Result<IEnumerable<MemoryRange>> ReadableRanges<TReader>(TReader reader)
         where TReader : IMemoryRegionProvider
     {
         var regions = reader.GetRegions(new(Address.Zero, ulong.MaxValue));
@@ -237,16 +243,7 @@ public static class Scan
             return regions.Error;
         }
 
-        List<MemoryRange> ranges = [];
-        foreach (var region in regions.Unwrap())
-        {
-            if ((region.Protection & MemoryProtection.Read) != 0)
-            {
-                ranges.Add(region.Range);
-            }
-        }
-
-        return ranges;
+        return Result.Ok(regions.Unwrap().MergeReadable());
     }
 
     private static IEnumerable<Address> RangesIterator(IMemoryReader reader, IEnumerable<MemoryRange> ranges, ScanPattern pattern)

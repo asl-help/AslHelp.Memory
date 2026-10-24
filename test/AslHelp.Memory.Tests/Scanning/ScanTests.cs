@@ -114,6 +114,32 @@ public class ScanTests
         Assert.That(found, Is.EqualTo([_base + 2]));
     }
 
+    // A match split across 2 adjacent readable regions is found once.
+    [Test]
+    public void Regions_AMatchAcrossAdjacentRegions_IsFoundOnce()
+    {
+        ProviderMemory memory = new(new(_base, [0x00, 0xAB, 0xCD, 0x00], MemoryLayout.X64));
+        memory.Regions.Add(new(new(_base, 2), MemoryProtection.Read));
+        memory.Regions.Add(new(new(_base + 2, 2), MemoryProtection.Read | MemoryProtection.Write));
+
+        var found = Scan.Regions(memory, ScanPattern.Parse("AB CD")).Unwrap();
+
+        Assert.That(found, Is.EqualTo([_base + 1]));
+    }
+
+    // A gap between 2 readable regions still separates them, so a match across the gap isn't found.
+    [Test]
+    public void Regions_AMatchAcrossAGap_IsNotFound()
+    {
+        ProviderMemory memory = new(new(_base, [0x00, 0xAB, 0xCD, 0xEF, 0x00], MemoryLayout.X64));
+        memory.Regions.Add(new(new(_base, 2), MemoryProtection.Read));
+        memory.Regions.Add(new(new(_base + 3, 2), MemoryProtection.Read));
+
+        var found = Scan.Regions(memory, ScanPattern.Parse("AB CD EF")).Unwrap();
+
+        Assert.That(found, Is.Empty);
+    }
+
     // The scan stops reading once the caller takes the first match.
     [Test]
     public void Range_TakingTheFirstMatch_StopsEarly()

@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `Scan.Range`, `Scan.Ranges` and `Scan.Regions` for scanning ranges or every readable region for a pattern in chunks, skipping chunks that can't be read.
 - `Scan.For`, `Scan.Forward`, `Scan.Backward`, `ScanStep` and `ScanWindow` for chained scans that search around the previous step's match.
 - `AddressResolver` with `Relative`, `Displacement` and `Offset` for turning a match into the address an instruction references.
+- `MergeReadable` for joining adjacent readable `MemoryRegion`s into contiguous `MemoryRange`s.
 - `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.
 
 [Unreleased]: https://github.com/asl-help/AslHelp.Memory/commits/main
