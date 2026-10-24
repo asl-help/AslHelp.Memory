@@ -154,8 +154,8 @@ internal static class InstructionLength
     /// </returns>
     /// <remarks>
     ///     Refuses an instruction that never falls through before the request is met, because the bytes past a return
-    ///     belong to the next function. Also refuses a call through a register or memory anywhere in the run, because
-    ///     the moved call would leave the stub's address on the stack for a thread to return to.
+    ///     belong to the next function. Also refuses a call anywhere in the run, because the moved call would leave the
+    ///     stub's address on the stack for a thread to return to.
     /// </remarks>
     public static bool TryStealLength(ReadOnlySpan<byte> code, bool is64Bit, int atLeast, out int length, out bool anyRelative)
     {
@@ -206,7 +206,7 @@ internal static class InstructionLength
             or Shape.Pop;
     }
 
-    // Returns whether a decoded instruction falls through, ends the straight path or calls through a register or memory.
+    // Returns whether a decoded instruction falls through, ends the straight path or calls.
     private static Flow FlowOf(ReadOnlySpan<byte> code, bool is64Bit)
     {
         int pos = 0;
@@ -233,6 +233,8 @@ internal static class InstructionLength
             // ret, ret imm16, the far returns, int3 and iret
             0xC2 or 0xC3 or 0xCA or 0xCB or 0xCC or 0xCF => Flow.Ends,
             0x0F when next == 0x0B => Flow.Ends, // ud2
+            0xE9 or 0xEB => Flow.Ends, // jmp rel32 and jmp rel8
+            0xE8 => Flow.Calls, // call rel32
             0xFF => ((next >> 3) & 7) switch
             {
                 2 or 3 => Flow.Calls,

@@ -416,6 +416,8 @@ public class InstructionLengthTests
     [TestCase("33 C0 C3 CC CC")] // a function shorter than the jump returns before it, so the next one would be overwritten
     [TestCase("FF 61 08 CC CC")] // a thunk jumping through memory never falls through
     [TestCase("FF D0 90 90 90")] // a call through a register would come back into the stub
+    [TestCase("EB 05 90 90 90")] // a short jump never falls through, so the nops after it aren't on the path
+    [TestCase("E8 00 00 00 00")] // a direct call would come back into the stub too
     public void Steal_Failing_Refuses(string hex)
     {
         Assert.That(Steals(hex, is64Bit: false, atLeast: 5), Is.False);
