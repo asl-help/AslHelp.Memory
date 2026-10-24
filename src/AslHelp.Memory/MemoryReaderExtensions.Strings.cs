@@ -14,6 +14,9 @@ public static partial class MemoryReaderExtensions
 
     private const int ChunkUnits = 64;
 
+    // Sized so a UTF-16 string of the default length with its terminator stays on the stack.
+    private const int StackBytes = (DefaultMaxChars + 1) * sizeof(char);
+
     extension(IMemoryReader reader)
     {
         /// <summary>
@@ -41,7 +44,8 @@ public static partial class MemoryReaderExtensions
             ArgumentOutOfRangeException.ThrowIfNegative(length);
 
             int unit = UnitSize(type);
-            var bytes = new byte[length * unit];
+            using var scratch = new Scratch<byte>(stackalloc byte[StackBytes], length * unit);
+            var bytes = scratch.Buffer;
 
             var read = reader.Read(address, bytes);
             if (read.IsErr)
@@ -83,14 +87,15 @@ public static partial class MemoryReaderExtensions
             int unit = UnitSize(type);
 
             // Reserves room for the terminator after the longest accepted string.
-            var bytes = new byte[(maxLength + 1) * unit];
+            using var scratch = new Scratch<byte>(stackalloc byte[StackBytes], (maxLength + 1) * unit);
+            var bytes = scratch.Buffer;
             int filled = 0;
             int chunk = ChunkUnits;
 
             while (filled < bytes.Length)
             {
                 int size = Math.Min(chunk * unit, bytes.Length - filled);
-                var slice = bytes.AsSpan(filled, size);
+                var slice = bytes.Slice(filled, size);
 
                 var read = reader.Read(address + filled, slice);
                 if (read.IsErr)
@@ -140,23 +145,24 @@ public static partial class MemoryReaderExtensions
         return -1;
     }
 
-    private static string Decode(byte[] bytes, int units, StringType type, ByteOrder order)
+    private static string Decode(ReadOnlySpan<byte> bytes, int units, StringType type, ByteOrder order)
     {
         if (type != StringType.Utf16)
         {
             var encoding = type == StringType.Ascii ? Encoding.ASCII : Encoding.UTF8;
-            return encoding.GetString(bytes, 0, units);
+            return encoding.GetString(bytes[..units]);
         }
 
-        var chars = new char[units];
+        using var scratch = new Scratch<char>(stackalloc char[StackBytes / sizeof(char)], units);
+        var chars = scratch.Buffer;
         for (int i = 0; i < units; i++)
         {
-            var span = bytes.AsSpan(i * sizeof(char), sizeof(char));
+            var span = bytes.Slice(i * sizeof(char), sizeof(char));
             chars[i] = (char)(order == ByteOrder.LittleEndian
                 ? BinaryPrimitives.ReadUInt16LittleEndian(span)
                 : BinaryPrimitives.ReadUInt16BigEndian(span));
         }
 
-        return new string(chars);
+        return chars.ToString();
     }
 }

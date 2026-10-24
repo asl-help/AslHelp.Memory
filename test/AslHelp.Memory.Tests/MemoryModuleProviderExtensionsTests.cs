@@ -9,7 +9,7 @@ public class MemoryModuleProviderExtensionsTests
     [Test]
     public void GetModule_DifferentCase_FindsTheModule()
     {
-        BufferMemory memory = new(0, [], MemoryLayout.X64);
+        ProviderMemory memory = new(new(Address.Zero, [], MemoryLayout.X64));
         MemoryModule game = new("Game.exe", @"C:\Game\Game.exe", new(new Address(0x400000), 0x1000));
         memory.Modules.Add(new("kernel32.dll", null, new(new Address(0x7FF00000), 0x1000)));
         memory.Modules.Add(game);
@@ -21,7 +21,7 @@ public class MemoryModuleProviderExtensionsTests
     [Test]
     public void GetModule_Missing_ReturnsAnError()
     {
-        BufferMemory memory = new(0, [], MemoryLayout.X64);
+        ProviderMemory memory = new(new(Address.Zero, [], MemoryLayout.X64));
         memory.Modules.Add(new("Game.exe", null, new(new Address(0x400000), 0x1000)));
 
         Assert.That(memory.GetModule("other.dll").IsErr, Is.True);

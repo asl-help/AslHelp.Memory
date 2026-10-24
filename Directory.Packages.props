@@ -31,6 +31,7 @@
       M:System.ArgumentNullException.ThrowIfNull(System.Object,System.String);
       M:System.ArgumentOutOfRangeException.ThrowIfNegative``1(;
       M:System.ObjectDisposedException.ThrowIf(System.Boolean,System.Object);
+      M:System.Text.Encoding.GetString(System.ReadOnlySpan{System.Byte});
       T:System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute;
       T:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute;
       T:System.Diagnostics.CodeAnalysis.NotNullAttribute;

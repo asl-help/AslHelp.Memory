@@ -10,7 +10,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadPointer_ThreeBytesBigEndian_ZeroExtends()
     {
-        BufferMemory memory = new(Base, [0x80, 0x10, 0x20, 0xFF], _bigEndian24);
+        BufferMemory memory = new(new Address(Base), [0x80, 0x10, 0x20, 0xFF], _bigEndian24);
 
         Assert.That(memory.ReadPointer(new Address(Base)).Unwrap(), Is.EqualTo(new Address(0x801020)));
     }
@@ -19,7 +19,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadPointer_ThreeBytesLittleEndian_ReadsLowByteFirst()
     {
-        BufferMemory memory = new(Base, [0x20, 0x10, 0x80], new MemoryLayout(3, ByteOrder.LittleEndian));
+        BufferMemory memory = new(new Address(Base), [0x20, 0x10, 0x80], new MemoryLayout(3, ByteOrder.LittleEndian));
 
         Assert.That(memory.ReadPointer(new Address(Base)).Unwrap(), Is.EqualTo(new Address(0x801020)));
     }
@@ -28,7 +28,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadPointer_EightBytes_ReadsAllOfThem()
     {
-        BufferMemory memory = new(Base, [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x81], MemoryLayout.X64);
+        BufferMemory memory = new(new Address(Base), [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x81], MemoryLayout.X64);
 
         Assert.That(memory.ReadPointer(new Address(Base)).Unwrap(), Is.EqualTo(new Address(0x8102030405060708)));
     }
@@ -37,7 +37,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadPointer_DefaultLayout_ReturnsAnError()
     {
-        BufferMemory memory = new(Base, new byte[8], default);
+        BufferMemory memory = new(new Address(Base), new byte[8], default);
 
         Assert.That(memory.ReadPointer(new Address(Base)).IsErr, Is.True);
     }
@@ -46,7 +46,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Deref_ThreeBytePointers_FollowsTheChain()
     {
-        BufferMemory memory = new(Base,
+        BufferMemory memory = new(new Address(Base),
         [
             0x00, 0x10, 0x04,
             0x00,
@@ -61,7 +61,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Deref_NoOffsets_ReturnsTheStart()
     {
-        BufferMemory memory = new(Base, [], MemoryLayout.X64);
+        BufferMemory memory = new(new Address(Base), [], MemoryLayout.X64);
 
         Assert.That(memory.Deref(new Address(0x1234)).Unwrap(), Is.EqualTo(new Address(0x1234)));
     }
@@ -70,7 +70,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Deref_AnUnreadableStep_ReturnsAnError()
     {
-        BufferMemory memory = new(Base, [0xFF, 0xFF, 0xFF, 0x00], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [0xFF, 0xFF, 0xFF, 0x00], MemoryLayout.X86);
 
         Assert.That(memory.Deref(new Address(Base), 0, 0).IsErr, Is.True);
     }

@@ -8,7 +8,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadString_Ascii_CutsAtTheTerminator()
     {
-        BufferMemory memory = new(Base, [(byte)'a', (byte)'b', 0, (byte)'c'], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [(byte)'a', (byte)'b', 0, (byte)'c'], MemoryLayout.X86);
 
         Assert.That(memory.ReadString(new Address(Base), 4, StringType.Ascii).Unwrap(), Is.EqualTo("ab"));
     }
@@ -17,7 +17,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadString_Utf8_DecodesMultiByteCharacters()
     {
-        BufferMemory memory = new(Base, [0xC3, 0xA9, (byte)'e'], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [0xC3, 0xA9, (byte)'e'], MemoryLayout.X86);
 
         Assert.That(memory.ReadString(new Address(Base), 3, StringType.Utf8).Unwrap(), Is.EqualTo("ée"));
     }
@@ -26,8 +26,8 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadString_Utf16_FollowsTheByteOrder()
     {
-        BufferMemory little = new(Base, [(byte)'h', 0, (byte)'i', 0], MemoryLayout.X86);
-        BufferMemory big = new(Base, [0, (byte)'h', 0, (byte)'i'], MemoryLayout.BigEndian32);
+        BufferMemory little = new(new Address(Base), [(byte)'h', 0, (byte)'i', 0], MemoryLayout.X86);
+        BufferMemory big = new(new Address(Base), [0, (byte)'h', 0, (byte)'i'], MemoryLayout.BigEndian32);
 
         using (Assert.EnterMultipleScope())
         {
@@ -40,7 +40,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadString_Utf16BigEndian_StopsAtTheTerminator()
     {
-        BufferMemory memory = new(Base, [0, (byte)'o', 0, (byte)'k', 0, 0], MemoryLayout.BigEndian32);
+        BufferMemory memory = new(new Address(Base), [0, (byte)'o', 0, (byte)'k', 0, 0], MemoryLayout.BigEndian32);
 
         Assert.That(memory.ReadString(new Address(Base), StringType.Utf16, 3).Unwrap(), Is.EqualTo("ok"));
     }
@@ -49,7 +49,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadString_NoTerminatorWithinTheBound_ReturnsAnError()
     {
-        BufferMemory memory = new(Base, [(byte)'a', (byte)'b', (byte)'c', (byte)'d', 0], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [(byte)'a', (byte)'b', (byte)'c', (byte)'d', 0], MemoryLayout.X86);
 
         Assert.That(memory.ReadString(new Address(Base), StringType.Ascii, 3).IsErr, Is.True);
     }
@@ -58,8 +58,24 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadString_NearTheEnd_ReadsTheString()
     {
-        BufferMemory memory = new(Base, [(byte)'x', 0], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [(byte)'x', 0], MemoryLayout.X86);
 
         Assert.That(memory.ReadString(new Address(Base), StringType.Utf8).Unwrap(), Is.EqualTo("x"));
+    }
+
+    // A UTF-16 string longer than the stack space reads through pooled space.
+    [Test]
+    public void ReadString_LongUtf16_ReadsTheString()
+    {
+        string text = new('z', 2000);
+        byte[] bytes = new byte[(text.Length + 1) * 2];
+        System.Text.Encoding.Unicode.GetBytes(text, 0, text.Length, bytes, 0);
+        BufferMemory memory = new(new Address(Base), bytes, MemoryLayout.X86);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(memory.ReadString(new Address(Base), text.Length, StringType.Utf16).Unwrap(), Is.EqualTo(text));
+            Assert.That(memory.ReadString(new Address(Base), StringType.Utf16, 4000).Unwrap(), Is.EqualTo(text));
+        }
     }
 }

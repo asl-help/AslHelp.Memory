@@ -9,7 +9,7 @@ public class MemoryRegionProviderTests
     [Test]
     public void GetRegions_ARange_ReturnsOnlyOverlappingRegions()
     {
-        BufferMemory memory = new(0, [], MemoryLayout.X64);
+        ProviderMemory memory = new(new(Address.Zero, [], MemoryLayout.X64));
         MemoryRegion before = new(new(new Address(0x1000), 0x1000), MemoryProtection.Read);
         MemoryRegion start = new(new(new Address(0x2000), 0x1000), MemoryProtection.Read | MemoryProtection.Write);
         MemoryRegion end = new(new(new Address(0x3000), 0x1000), MemoryProtection.Execute);
