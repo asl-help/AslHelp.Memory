@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `MemoryLocator` and `LocatorRoute` in `AslHelp.Memory.Locating` for named routes from a module's base to an address, tried until 1 of them locates it, with a JSON form. `Routes` looks a route up by name.
 - `ExportStep`, `SearchStep`, `ReadStep` with `ReadKind` and `OffsetStep` for the steps of a route, each with an offset.
 - `GlobalSlot` for reading the pointer in a located slot on each access, with a timed retry after a failed locate.
+- `MemoryWatcher<T>`, `StringWatcher` and `ArrayWatcher<T>` in `AslHelp.Memory.Watching` for a value at the end of a pointer path, read at most once per tick of an `ITickCounter` and only when accessed, with `Old`, `Current`, `Changed`, `ChangedTo`, `ChangedFrom` and `Check`.
+- `FailAction` for what a watcher does when a read fails: clear its values, keep them or throw with the error of the read.
 - `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.
 
 [Unreleased]: https://github.com/asl-help/AslHelp.Memory/commits/main

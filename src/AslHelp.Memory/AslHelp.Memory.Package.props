@@ -1,8 +1,8 @@
 <Project>
 
   <PropertyGroup>
-    <Description>Memory reads for asl-help: addresses, pointer chains and strings in any pointer size and byte order.</Description>
-    <PackageTags>memory process</PackageTags>
+    <Description>Memory reads for asl-help: addresses, pointer chains and strings in any pointer size and byte order, signature scans, PE exports, locators and watchers.</Description>
+    <PackageTags>memory process signature-scan watcher</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
