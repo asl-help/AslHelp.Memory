@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `MergeReadable` for joining adjacent readable `MemoryRegion`s into contiguous `MemoryRange`s.
 - `PeDirectory`, `PeDataDirectory` and `GetDataDirectory` in `AslHelp.Memory.Pe` for reading a loaded module's PE data directory through any `IMemoryReader`.
 - `GetExport` for finding the address of a module's named export with a binary search over its sorted name table.
-- `MemoryLocator` and `LocatorRoute` in `AslHelp.Memory.Locating` for named routes from a module's base to an address, tried in order until 1 of them locates it, with a JSON form.
+- `MemoryLocator` and `LocatorRoute` in `AslHelp.Memory.Locating` for named routes from a module's base to an address, tried until 1 of them locates it, with a JSON form. `Routes` looks a route up by name.
 - `ExportStep`, `SearchStep`, `ReadStep` with `ReadKind` and `OffsetStep` for the steps of a route, each with an offset.
 - `GlobalSlot` for reading the pointer in a located slot on each access, with a timed retry after a failed locate.
 - `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.

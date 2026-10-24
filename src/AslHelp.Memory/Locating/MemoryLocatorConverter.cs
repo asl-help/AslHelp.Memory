@@ -9,9 +9,6 @@ namespace AslHelp.Memory.Locating;
 ///     Provides the JSON form of a <see cref="MemoryLocator"/>: an object whose keys are the route names and whose
 ///     values are arrays of steps.
 /// </summary>
-/// <remarks>
-///     The routes are tried in the order the document writes them.
-/// </remarks>
 internal sealed class MemoryLocatorConverter : JsonConverter<MemoryLocator>
 {
     /// <inheritdoc/>
@@ -55,7 +52,7 @@ internal sealed class MemoryLocatorConverter : JsonConverter<MemoryLocator>
 
         writer.WriteStartObject();
 
-        foreach (var route in value.Routes)
+        foreach (var route in value.Routes.Values)
         {
             writer.WritePropertyName(route.Name);
             JsonSerializer.Serialize(writer, route.Steps, options);

@@ -8,7 +8,7 @@ using System.Text.Json.Serialization;
 namespace AslHelp.Memory.Locating;
 
 /// <summary>
-///     Represents named routes to 1 address, tried in order until 1 of them locates it.
+///     Represents named routes to 1 address, tried until 1 of them locates it.
 /// </summary>
 /// <remarks>
 ///     A game that ships in more than 1 build often needs a different pattern per build, so each build gets a route of
@@ -17,12 +17,12 @@ namespace AslHelp.Memory.Locating;
 [JsonConverter(typeof(MemoryLocatorConverter))]
 public sealed class MemoryLocator
 {
-    private readonly LocatorRoute[] _routes;
+    private readonly Dictionary<string, LocatorRoute> _routes;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="MemoryLocator"/> class.
     /// </summary>
-    /// <param name="routes">The routes to try in order.</param>
+    /// <param name="routes">The routes to try.</param>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="routes"/> or 1 of the routes is <see langword="null"/>.
     /// </exception>
@@ -38,28 +38,30 @@ public sealed class MemoryLocator
             throw new ArgumentException("A locator needs at least 1 route.", nameof(routes));
         }
 
-        // An error includes the name of the route that failed, so 2 routes with 1 name would be impossible to tell apart.
-        HashSet<string> names = [with(StringComparer.Ordinal)];
+        _routes = new(routes.Length, StringComparer.Ordinal);
+
+        // Routes are looked up by name and an error includes the name of the route that failed, so names must be unique.
         foreach (var route in routes)
         {
             ArgumentNullException.ThrowIfNull(route, nameof(routes));
 
-            if (!names.Add(route.Name))
+            if (!_routes.TryAdd(route.Name, route))
             {
                 throw new ArgumentException($"2 routes are named '{route.Name}'. Give each route its own name.", nameof(routes));
             }
         }
-
-        _routes = [.. routes];
     }
 
     /// <summary>
-    ///     Gets the routes in the order they're tried.
+    ///     Gets the routes by name.
     /// </summary>
-    public IReadOnlyList<LocatorRoute> Routes => _routes;
+    /// <remarks>
+    ///     <c>Routes["name"].Locate(reader, module)</c> runs only that route.
+    /// </remarks>
+    public IReadOnlyDictionary<string, LocatorRoute> Routes => _routes;
 
     /// <summary>
-    ///     Tries each route in order and returns the address of the first one that succeeds.
+    ///     Tries the routes until 1 of them succeeds and returns its address.
     /// </summary>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="module">The module the routes start at.</param>
@@ -77,7 +79,7 @@ public sealed class MemoryLocator
 
         StringBuilder failures = new();
 
-        foreach (var route in _routes)
+        foreach (var route in _routes.Values)
         {
             if (route.Locate(reader, module).TryUnwrap(out var address, out var error))
             {
@@ -106,12 +108,6 @@ public sealed class MemoryLocator
     /// </returns>
     public override string ToString()
     {
-        string[] names = new string[_routes.Length];
-        for (int i = 0; i < names.Length; i++)
-        {
-            names[i] = _routes[i].Name;
-        }
-
-        return string.Join(" or ", names);
+        return string.Join(" or ", _routes.Keys);
     }
 }

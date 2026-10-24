@@ -11,9 +11,9 @@ public class MemoryLocatorTests
 {
     private static readonly Address _base = new(0x400000);
 
-    // The first route that succeeds is taken.
+    // A route that succeeds gives the address.
     [Test]
-    public void Locate_FirstRouteSucceeds_TakesIt()
+    public void Locate_ARouteSucceeds_TakesIt()
     {
         var memory = Memory(0x08, 0x90);
 
@@ -24,9 +24,9 @@ public class MemoryLocatorTests
         Assert.That(locator.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x08));
     }
 
-    // A failed route falls through to the next one.
+    // A failed route is skipped for one that succeeds.
     [Test]
-    public void Locate_FirstRouteFails_FallsThroughToTheNext()
+    public void Locate_ARouteFails_TriesAnother()
     {
         var memory = Memory(0x08, 0x91);
 
@@ -37,7 +37,7 @@ public class MemoryLocatorTests
         Assert.That(locator.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x08));
     }
 
-    // A whole-module search with disagreeing matches falls through to the next route.
+    // A whole-module search with disagreeing matches is skipped for another route.
     [Test]
     public void Locate_FirstRouteIsAmbiguous_FallsThroughToTheNext()
     {
@@ -86,6 +86,36 @@ public class MemoryLocatorTests
         _ = locator.Locate(memory, Module(memory), logger);
 
         Assert.That(sink.Messages, Has.Some.StartsWith("Route 'release' failed.").And.Some.EqualTo("Route 'master' located 0x400008."));
+    }
+
+    // A route picked by name runs on its own and doesn't fall back to another route.
+    [Test]
+    public void Routes_APickedRoute_RunsOnItsOwn()
+    {
+        var memory = Memory(0x08, 0x91);
+
+        MemoryLocator locator = new(
+            new LocatorRoute("release", new SearchStep(Scan.For("90"))),
+            new LocatorRoute("master", new SearchStep(Scan.For("91"))));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(locator.Routes["release"].Locate(memory, Module(memory)).IsOk, Is.False);
+            Assert.That(locator.Routes["master"].Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x08));
+        }
+    }
+
+    // A name no route has isn't found.
+    [Test]
+    public void Routes_AnUnknownName_IsNotFound()
+    {
+        MemoryLocator locator = new(new LocatorRoute("release", new OffsetStep(0)));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(locator.Routes.TryGetValue("master", out _), Is.False);
+            Assert.That(() => locator.Routes["master"], Throws.TypeOf<KeyNotFoundException>());
+        }
     }
 
     // 2 routes with 1 name throw.

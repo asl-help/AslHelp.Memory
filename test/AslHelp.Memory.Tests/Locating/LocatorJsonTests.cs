@@ -44,7 +44,7 @@ public class LocatorJsonTests
         var locator = Parse(SceneManager);
 
         Assert.That(
-            locator.Routes[0].Steps,
+            locator.Routes["SceneManager_Get_Custom_PropSceneCount"].Steps,
             Is.EqualTo(new RouteStep[]
             {
                 new SearchStep(Scan.For("48 8B 05 ?? ?? ?? ?? 8B 40 18 C3"), 3),
@@ -52,13 +52,13 @@ public class LocatorJsonTests
             }));
     }
 
-    // Routes keep the order of the document.
+    // Every route of the document can be looked up by its name.
     [Test]
-    public void Deserialize_SeveralRoutes_KeepsTheirOrder()
+    public void Deserialize_SeveralRoutes_FindsEachByName()
     {
         var locator = Parse(MonoDomain);
 
-        Assert.That(locator.ToString(), Is.EqualTo("2021.3 release or 2021.3 master"));
+        Assert.That(locator.Routes.Keys, Is.EquivalentTo(["2021.3 release", "2021.3 master"]));
     }
 
     // Each step kind reads with its settings.
@@ -70,7 +70,7 @@ public class LocatorJsonTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
-                locator.Routes[0].Steps,
+                locator.Routes["2021.3 release"].Steps,
                 Is.EqualTo(new RouteStep[]
                 {
                     new ExportStep("mono_assembly_foreach"),
@@ -78,7 +78,7 @@ public class LocatorJsonTests
                     new ReadStep(ReadKind.Global),
                 }));
             Assert.That(
-                locator.Routes[1].Steps,
+                locator.Routes["2021.3 master"].Steps,
                 Is.EqualTo(new RouteStep[] { new ReadStep(ReadKind.Pointer, Offset: 8), new OffsetStep(0x10) }));
         }
     }
@@ -91,14 +91,10 @@ public class LocatorJsonTests
         var locator = Parse(json);
         var again = Parse(JsonSerializer.Serialize(locator, _options));
 
-        Assert.That(again.Routes, Has.Count.EqualTo(locator.Routes.Count));
-        for (int i = 0; i < locator.Routes.Count; i++)
+        Assert.That(again.Routes.Keys, Is.EquivalentTo(locator.Routes.Keys));
+        foreach (var route in locator.Routes.Values)
         {
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(again.Routes[i].Name, Is.EqualTo(locator.Routes[i].Name));
-                Assert.That(again.Routes[i].Steps, Is.EqualTo(locator.Routes[i].Steps));
-            }
+            Assert.That(again.Routes[route.Name].Steps, Is.EqualTo(route.Steps));
         }
     }
 
@@ -121,7 +117,7 @@ public class LocatorJsonTests
     [Test]
     public void Deserialize_DecimalOffset_ReadsTheSameAsHex()
     {
-        Assert.That(Parse("""{ "a": [ { "offset": 16 } ] }""").Routes[0].Steps[0], Is.EqualTo(new OffsetStep(0x10)));
+        Assert.That(Parse("""{ "a": [ { "offset": 16 } ] }""").Routes["a"].Steps[0], Is.EqualTo(new OffsetStep(0x10)));
     }
 
     // The error of an invalid step includes the name of its route.
