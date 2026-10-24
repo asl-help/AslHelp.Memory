@@ -1,6 +1,6 @@
 using System;
 
-namespace AslHelp.Memory;
+namespace AslHelp.Memory.Errors;
 
 /// <summary>
 ///     Represents a failed read or write of a target's memory.
@@ -77,5 +77,17 @@ internal sealed record MemoryError : ResultError
     public static MemoryError TerminatorNotFound(Address address, int maxLength)
     {
         return new($"The string at {address} has no terminator within {maxLength} characters.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a module called <paramref name="name"/> that isn't loaded.
+    /// </summary>
+    /// <param name="name">The file name of the module.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static MemoryError ModuleNotFound(string name)
+    {
+        return new($"No module named '{name}' is loaded.");
     }
 }

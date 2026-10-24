@@ -122,5 +122,7 @@ public partial class MemoryReaderExtensionsTests
         Assert.That(memory.ReadArray<int>(new Address(Base), 2).IsErr, Is.True);
     }
 
-    private readonly record struct Pair(short First, short Second);
+    private readonly record struct Pair(
+        short First,
+        short Second);
 }

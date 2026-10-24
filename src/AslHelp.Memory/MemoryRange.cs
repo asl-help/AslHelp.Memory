@@ -5,7 +5,9 @@ namespace AslHelp.Memory;
 /// </summary>
 /// <param name="Start">The address of the first byte.</param>
 /// <param name="Size">The number of bytes.</param>
-public readonly record struct MemoryRange(Address Start, ulong Size)
+public readonly record struct MemoryRange(
+    Address Start,
+    ulong Size)
 {
     /// <summary>
     ///     Gets the address one past the last byte.

@@ -13,5 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `IMemoryReader` and `IMemoryWriter` for reading and writing raw bytes of a target's memory.
 - `Read`, `ReadArray`, `ReadPointer` and `Deref` for reading values, pointers and pointer chains in the target's layout.
 - `ReadString` for reading ASCII, UTF-8 and UTF-16 strings of a given length or up to their null terminator, with `StringType`.
+- `IMemoryRegionProvider`, `MemoryRegion` and `MemoryProtection` for listing the committed regions of a target's memory with their access.
+- `IMemoryModuleProvider` and `MemoryModule` for listing the modules loaded in a target, with `GetModule` for finding a module by name in any case.
+- `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.
 
 [Unreleased]: https://github.com/asl-help/AslHelp.Memory/commits/main

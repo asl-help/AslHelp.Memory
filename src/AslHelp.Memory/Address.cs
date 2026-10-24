@@ -10,7 +10,8 @@ namespace AslHelp.Memory;
 ///     Arithmetic wraps around at the ends of the 64-bit range.
 /// </remarks>
 /// <param name="Value">The address as an unsigned 64-bit number.</param>
-public readonly record struct Address(ulong Value) : IComparable<Address>, IComparable, IFormattable
+public readonly record struct Address(
+    ulong Value) : IComparable<Address>, IComparable, IFormattable
 {
     /// <summary>
     ///     Gets the address 0.
