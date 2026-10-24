@@ -202,7 +202,8 @@ internal static class InstructionLength
             or Shape.Group3Word
             or Shape.MovImm8
             or Shape.MovImmZ
-            or Shape.Group5;
+            or Shape.Group5
+            or Shape.Pop;
     }
 
     // Returns whether a decoded instruction falls through, ends the straight path or calls through a register or memory.
@@ -397,6 +398,13 @@ internal static class InstructionLength
                 size = 0;
                 return reg is 0 or 1 or 2 or 4 or 6;
             }
+            case Shape.Pop:
+            {
+                // Takes only the `/0` form, pop r/m. The other reg values make 8F the XOP escape, whose length isn't
+                // modeled here.
+                size = 0;
+                return reg == 0;
+            }
             case Shape.Refused:
             default:
             {
@@ -438,7 +446,8 @@ internal static class InstructionLength
             0x81 => Shape.ModRmImmZ, // group 1 with a full width immediate
             0x83 => Shape.ModRmImm8, // group 1 with a sign extended imm8
 
-            >= 0x84 and <= 0x8F => Shape.ModRm, // test, xchg, mov, lea, pop r/m
+            >= 0x84 and <= 0x8E => Shape.ModRm, // test, xchg, mov, lea
+            0x8F => Shape.Pop,
 
             >= 0x90 and <= 0x99 => Shape.None, // nop, xchg with the accumulator, the sign extensions
             >= 0x9C and <= 0x9F => Shape.None, // the flag register moves
@@ -559,6 +568,7 @@ internal static class InstructionLength
         MovImm8,
         MovImmZ,
         Group5,
+        Pop,
     }
 
     private enum Flow

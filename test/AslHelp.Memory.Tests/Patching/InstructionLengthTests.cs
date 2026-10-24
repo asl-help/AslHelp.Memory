@@ -316,6 +316,24 @@ public class InstructionLengthTests
         Assert.That(Decodes(hex, is64Bit: true), Is.False);
     }
 
+    // An 8F byte with a nonzero ModRM reg field is an XOP escape and is refused in both modes.
+    [TestCase("8F E8 78 C0 C1 05", true)] // vprotb xmm0, xmm1, 5
+    [TestCase("8F E8 78 C0 C1 05", false)]
+    [TestCase("8F E9 78 90 C1", true)] // vprotb xmm0, xmm1, xmm0
+    [TestCase("8F 08 00 00", true)] // reg 1, which pop doesn't use
+    public void Decode_XopEscape_Refuses(string hex, bool is64Bit)
+    {
+        Assert.That(Decodes(hex, is64Bit), Is.False);
+    }
+
+    // pop r/m is the reg 0 form of 8F.
+    [TestCase("8F 00", 2)] // pop qword ptr [rax]
+    [TestCase("8F 45 08", 3)] // pop qword ptr [rbp+8]
+    public void Decode_PopToMemory_ReportsItsLength(string hex, int expected)
+    {
+        Assert.That(Decode(hex, is64Bit: true), Is.EqualTo((expected, false)));
+    }
+
     // The movsxd byte is arpl in 32-bit code and is refused.
     [Test]
     public void Decode_Arpl_IsRefusedIn32BitCode()
