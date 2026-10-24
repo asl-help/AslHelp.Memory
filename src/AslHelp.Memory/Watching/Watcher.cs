@@ -21,7 +21,7 @@ public abstract class Watcher
     /// <summary>
     ///     Initializes a new instance of the <see cref="Watcher"/> class.
     /// </summary>
-    /// <param name="ticks">The tick counter the watcher reads at most once per tick of.</param>
+    /// <param name="ticks">The tick counter that limits the watcher to 1 read per tick.</param>
     /// <param name="reader">The memory to read from.</param>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="ticks"/> or <paramref name="reader"/> is <see langword="null"/>.
@@ -57,7 +57,7 @@ public abstract class Watcher
     } = true;
 
     /// <summary>
-    ///     Gets or sets what happens to the values when a read fails.
+    ///     Gets or sets what happens to the values when a read fails. The default is <see cref="FailAction.Clear"/>.
     /// </summary>
     public FailAction FailAction { get; set; }
 

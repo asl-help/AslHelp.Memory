@@ -12,7 +12,7 @@ namespace AslHelp.Memory.Watching;
 ///     by reference and reports a change on every read.
 /// </remarks>
 /// <typeparam name="T">The type of the value.</typeparam>
-/// <param name="ticks">The tick counter the watcher reads at most once per tick of.</param>
+/// <param name="ticks">The tick counter that limits the watcher to 1 read per tick.</param>
 /// <param name="reader">The memory to read from.</param>
 /// <param name="comparer">The comparer for 2 reads, or <see langword="null"/> for the type's default comparer.</param>
 public abstract class Watcher<T>(

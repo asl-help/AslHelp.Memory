@@ -82,25 +82,32 @@ var sceneManager = locator.Locate(memory, module);
 A watcher reads a value at the end of a pointer path and keeps the read before it. It reads at most once per tick of an `ITickCounter` and only when one of its values is used:
 
 ```cs
+var ticks = new Ticks();
+var level = new MemoryWatcher<int>(ticks, memory, module.Range.Start + 0x1234, 0x10, 0x8);
+
+while (true)
+{
+    ticks.Value++;
+
+    if (level.Changed)
+    {
+        Console.WriteLine($"Level went from {level.Old} to {level.Current}.");
+    }
+
+    Thread.Sleep(15);
+}
+
 sealed class Ticks : ITickCounter
 {
     public long Value { get; set; }
 }
-
-var ticks = new Ticks();
-var level = new MemoryWatcher<int>(ticks, memory, module.Range.Start + 0x1234, 0x10, 0x8);
-
-ticks.Value++;
-
-if (level.Changed)
-{
-    Console.WriteLine($"Level went from {level.Old} to {level.Current}.");
-}
 ```
+
+The first read only fills the values, so `Changed` can only be `true` from the second read on.
 
 `ChangedTo` and `ChangedFrom` check what the value changed to or from. `StringWatcher` and `ArrayWatcher<T>` work the same way for a string and for a fixed number of values.
 
-When a read fails, `FailAction` picks what happens. `Clear` resets the values, `KeepOld` keeps them and `Throw` throws with the error from the read.
+When a read fails, `FailAction` picks what happens. `Clear` resets the values, so the next good read only fills them again. `KeepOld` keeps them and `Throw` throws with the error from the read.
 
 ## Contributing
 

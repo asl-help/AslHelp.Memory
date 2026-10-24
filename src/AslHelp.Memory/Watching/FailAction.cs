@@ -13,6 +13,10 @@ public enum FailAction
     /// <summary>
     ///     Keeps the values from the last successful read.
     /// </summary>
+    /// <remarks>
+    ///     <see cref="Watcher{T}.Changed"/> is <see langword="false"/> after a failed read, but <c>Old</c> and
+    ///     <c>Current</c> keep their last values, so a comparison of the 2 still sees the last change.
+    /// </remarks>
     KeepOld,
 
     /// <summary>

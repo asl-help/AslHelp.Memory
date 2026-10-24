@@ -15,7 +15,7 @@ public sealed class MemoryWatcher<T> : Watcher<T>
     /// <summary>
     ///     Initializes a new instance of the <see cref="MemoryWatcher{T}"/> class.
     /// </summary>
-    /// <param name="ticks">The tick counter the watcher reads at most once per tick of.</param>
+    /// <param name="ticks">The tick counter that limits the watcher to 1 read per tick.</param>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="address">The address the path starts at.</param>
     /// <param name="offsets">The offset to add after each pointer read.</param>

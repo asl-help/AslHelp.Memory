@@ -15,7 +15,7 @@ public sealed class StringWatcher : Watcher<string>
     /// <summary>
     ///     Initializes a new instance of the <see cref="StringWatcher"/> class.
     /// </summary>
-    /// <param name="ticks">The tick counter the watcher reads at most once per tick of.</param>
+    /// <param name="ticks">The tick counter that limits the watcher to 1 read per tick.</param>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="length">
     ///     The number of units to read, counted in bytes for <see cref="StringType.Ascii"/> and
