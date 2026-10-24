@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <Description>Windows process memory for asl-help: reads, writes, regions and modules of another running process.</Description>
+    <PackageTags>memory process windows</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(RootPath)/readme.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

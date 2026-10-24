@@ -1,0 +1,11 @@
+EnumProcessModulesEx
+GetModuleBaseName
+GetModuleFileNameEx
+GetModuleInformation
+IsWow64Process
+OpenProcess
+PAGE_PROTECTION_FLAGS
+PAGE_TYPE
+ReadProcessMemory
+VIRTUAL_ALLOCATION_TYPE
+WriteProcessMemory

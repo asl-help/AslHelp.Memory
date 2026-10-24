@@ -9,10 +9,12 @@
 
   <Folder Name="/src/">
     <Project Path="src/AslHelp.Memory/AslHelp.Memory.csproj" />
+    <Project Path="src/AslHelp.Memory.Remote/AslHelp.Memory.Remote.csproj" />
   </Folder>
 
   <Folder Name="/test/">
     <Project Path="test/AslHelp.Memory.Tests/AslHelp.Memory.Tests.csproj" />
+    <Project Path="test/AslHelp.Memory.Remote.Tests/AslHelp.Memory.Remote.Tests.csproj" />
   </Folder>
 
 </Solution>

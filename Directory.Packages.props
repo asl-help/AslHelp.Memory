@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.367" />
     <PackageVersion Include="NUnit" Version="5.0.0" />
     <PackageVersion Include="NUnit.Analyzers" Version="4.15.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.3.1" />
@@ -27,6 +28,19 @@
 
   <PropertyGroup>
     <MeziantouPolyfill_IncludedPolyfills>
+      M:System.ArgumentNullException.ThrowIfNull(System.Object,System.String);
+      M:System.ArgumentOutOfRangeException.ThrowIfNegative``1(;
+      M:System.ObjectDisposedException.ThrowIf(System.Boolean,System.Object);
+      T:System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute;
+      T:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute;
+      T:System.Diagnostics.CodeAnalysis.NotNullAttribute;
+      T:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute;
+      T:System.Diagnostics.StackTraceHiddenAttribute;
+      T:System.Index;
+      T:System.Range;
+      T:System.Runtime.CompilerServices.CallerArgumentExpressionAttribute;
+      T:System.Runtime.CompilerServices.IsExternalInit;
+      T:System.Runtime.Versioning.SupportedOSPlatformAttribute;
     </MeziantouPolyfill_IncludedPolyfills>
   </PropertyGroup>
 

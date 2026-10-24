@@ -4,9 +4,8 @@
     ".gitignore": ".gitattributes, .gitmodules",
     "*.slnx": ".editorconfig, Directory.Build.props, Directory.Packages.props, global.json",
     "*.csproj": "${capture}.Package.props",
+    "I*.cs": "${capture}Extensions.cs, ${capture}Extensions.*.cs",
+    "*.cs": "${capture}Extensions.cs, ${capture}Extensions.*.cs",
     "readme.md": "agents.md, changelog.md, license.md",
   },
-  "dotnet.server.environmentVariables": {
-    "DOTNET_ROLL_FORWARD": "LatestMajor"
-  }
 }

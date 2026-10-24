@@ -1,3 +1,4 @@
+using AslHelp.Memory.Errors;
 using System;
 using System.Buffers.Binary;
 using System.Text;
