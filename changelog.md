@@ -15,6 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `ReadString` for reading ASCII, UTF-8 and UTF-16 strings of a given length or up to their null terminator, with `StringType`.
 - `IMemoryRegionProvider`, `MemoryRegion` and `MemoryProtection` for listing the committed regions of a target's memory with their access.
 - `IMemoryModuleProvider` and `MemoryModule` for listing the modules loaded in a target, with `GetModule` for finding a module by name in any case.
+- `BufferMemory` for reading and writing a byte array mapped at a base address, with `Range` for the bytes it covers.
+- `ScanPattern` for parsing byte signatures such as `48 8B 05 ????????` with wildcard nibbles, with `Parse`, `TryParse`, `Length` and `ToString`.
+- `Scan.Range`, `Scan.Ranges` and `Scan.Regions` for scanning ranges or every readable region for a pattern in chunks, skipping chunks that can't be read.
+- `Scan.For`, `Scan.Forward`, `Scan.Backward`, `ScanStep` and `ScanWindow` for chained scans that search around the previous step's match.
+- `AddressResolver` with `Relative`, `Displacement` and `Offset` for turning a match into the address an instruction references.
 - `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.
 
 [Unreleased]: https://github.com/asl-help/AslHelp.Memory/commits/main

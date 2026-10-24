@@ -11,7 +11,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_IntLittleEndian_ReadsLowByteFirst()
     {
-        BufferMemory memory = new(Base, [0x78, 0x56, 0x34, 0x12], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [0x78, 0x56, 0x34, 0x12], MemoryLayout.X86);
 
         Assert.That(memory.Read<int>(new Address(Base)).Unwrap(), Is.EqualTo(0x12345678));
     }
@@ -20,7 +20,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_IntBigEndian_ReadsHighByteFirst()
     {
-        BufferMemory memory = new(Base, [0x12, 0x34, 0x56, 0x78], MemoryLayout.BigEndian32);
+        BufferMemory memory = new(new Address(Base), [0x12, 0x34, 0x56, 0x78], MemoryLayout.BigEndian32);
 
         Assert.That(memory.Read<int>(new Address(Base)).Unwrap(), Is.EqualTo(0x12345678));
     }
@@ -29,8 +29,8 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_FloatInBothByteOrders_ReadsTheSameValue()
     {
-        BufferMemory little = new(Base, [0x00, 0x00, 0x80, 0x3F], MemoryLayout.X86);
-        BufferMemory big = new(Base, [0x3F, 0x80, 0x00, 0x00], MemoryLayout.BigEndian32);
+        BufferMemory little = new(new Address(Base), [0x00, 0x00, 0x80, 0x3F], MemoryLayout.X86);
+        BufferMemory big = new(new Address(Base), [0x3F, 0x80, 0x00, 0x00], MemoryLayout.BigEndian32);
 
         using (Assert.EnterMultipleScope())
         {
@@ -43,7 +43,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_DoubleBigEndian_ReadsHighByteFirst()
     {
-        BufferMemory memory = new(Base, [0x40, 0x00, 0, 0, 0, 0, 0, 0], MemoryLayout.BigEndian32);
+        BufferMemory memory = new(new Address(Base), [0x40, 0x00, 0, 0, 0, 0, 0, 0], MemoryLayout.BigEndian32);
 
         Assert.That(memory.Read<double>(new Address(Base)).Unwrap(), Is.EqualTo(2d));
     }
@@ -52,7 +52,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_PastTheEnd_ReturnsAnError()
     {
-        BufferMemory memory = new(Base, [1, 2], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [1, 2], MemoryLayout.X86);
 
         Assert.That(memory.Read<int>(new Address(Base)).IsErr, Is.True);
     }
@@ -61,7 +61,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_BelowTheStart_ReturnsAnError()
     {
-        BufferMemory memory = new(Base, [1, 2, 3, 4], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [1, 2, 3, 4], MemoryLayout.X86);
 
         Assert.That(memory.Read<int>(new Address(Base - 1)).IsErr, Is.True);
     }
@@ -70,7 +70,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_HostSizedTypes_ReturnAnError()
     {
-        BufferMemory memory = new(Base, new byte[8], MemoryLayout.X64);
+        BufferMemory memory = new(new Address(Base), new byte[8], MemoryLayout.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -84,7 +84,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void Read_AStructBigEndian_ReadsRawBytes()
     {
-        BufferMemory memory = new(Base, [0x01, 0x02, 0x03, 0x04], MemoryLayout.BigEndian32);
+        BufferMemory memory = new(new Address(Base), [0x01, 0x02, 0x03, 0x04], MemoryLayout.BigEndian32);
 
         var pair = memory.Read<Pair>(new Address(Base)).Unwrap();
 
@@ -99,7 +99,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadArray_ShortsBigEndian_ReadsEveryElement()
     {
-        BufferMemory memory = new(Base, [0x00, 0x01, 0x00, 0x02, 0x01, 0x00], MemoryLayout.BigEndian32);
+        BufferMemory memory = new(new Address(Base), [0x00, 0x01, 0x00, 0x02, 0x01, 0x00], MemoryLayout.BigEndian32);
 
         Assert.That(memory.ReadArray<short>(new Address(Base), 3).Unwrap(), Is.EqualTo(new short[] { 1, 2, 256 }));
     }
@@ -108,7 +108,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadArray_CountZero_ReturnsEmpty()
     {
-        BufferMemory memory = new(Base, [], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [], MemoryLayout.X86);
 
         Assert.That(memory.ReadArray<int>(new Address(Base), 0).Unwrap(), Is.Empty);
     }
@@ -117,7 +117,7 @@ public partial class MemoryReaderExtensionsTests
     [Test]
     public void ReadArray_PastTheEnd_ReturnsAnError()
     {
-        BufferMemory memory = new(Base, [1, 0, 0, 0], MemoryLayout.X86);
+        BufferMemory memory = new(new Address(Base), [1, 0, 0, 0], MemoryLayout.X86);
 
         Assert.That(memory.ReadArray<int>(new Address(Base), 2).IsErr, Is.True);
     }
