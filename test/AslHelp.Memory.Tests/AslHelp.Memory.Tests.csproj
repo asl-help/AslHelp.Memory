@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="AsmResolver.PE" />
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Iced" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit.Analyzers" />

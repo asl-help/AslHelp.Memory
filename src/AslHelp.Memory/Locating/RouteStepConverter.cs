@@ -60,24 +60,36 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
             switch (key)
             {
                 case "export" or "read":
+                {
                     kind = SetKind(kind, key);
                     value = ReadText(ref reader, key);
                     break;
+                }
                 case "forward" or "backward":
+                {
                     kind = SetKind(kind, key);
                     value = ReadSignature(ref reader, key);
                     break;
+                }
                 case "within":
+                {
                     within = ReadNumber(ref reader, key);
                     break;
+                }
                 case "size":
+                {
                     size = ReadNumber(ref reader, key);
                     break;
+                }
                 case "offset":
+                {
                     offset = ReadNumber(ref reader, key);
                     break;
+                }
                 default:
+                {
                     throw new JsonException($"'{key}' isn't a step or a step setting. Use {Kinds}, with within, size and offset.");
+                }
             }
         }
 
@@ -106,9 +118,12 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
         switch (value)
         {
             case ExportStep export:
+            {
                 writer.WriteString("export", export.Name);
                 break;
+            }
             case SearchStep search:
+            {
                 writer.WriteString(search.Search.Kind == ScanStepKind.Backward ? "backward" : "forward", search.Search.Pattern.ToString());
                 if (!search.IsWholeModule)
                 {
@@ -116,7 +131,9 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
                 }
 
                 break;
+            }
             case ReadStep read:
+            {
                 writer.WriteString("read", NameOf(read.Kind));
                 if (read.Kind != ReadKind.Pointer && read.Size != DefaultSize)
                 {
@@ -124,8 +141,11 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
                 }
 
                 break;
+            }
             default:
+            {
                 break;
+            }
         }
 
         if (value.Offset != 0 || value is OffsetStep)
