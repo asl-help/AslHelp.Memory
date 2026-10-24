@@ -135,6 +135,64 @@ internal static class InstructionLength
         return true;
     }
 
+    /// <summary>
+    ///     Decodes forward from the start of <paramref name="code"/> until whole instructions cover at least
+    ///     <paramref name="atLeast"/> bytes.
+    /// </summary>
+    /// <param name="code">The bytes to decode, starting on an instruction boundary.</param>
+    /// <param name="is64Bit">Whether the code runs in 64-bit mode.</param>
+    /// <param name="atLeast">The number of bytes the patch needs, 5 for a <c>jmp rel32</c>.</param>
+    /// <param name="length">
+    ///     The total length of the decoded instructions, which is at least <paramref name="atLeast"/>, or <c>0</c>
+    ///     when they were not all decoded.
+    /// </param>
+    /// <param name="anyRelative">
+    ///     Whether any decoded instruction reaches memory or a branch target relative to its own address.
+    /// </param>
+    /// <returns>
+    ///     Whether every instruction up to that point was decoded and can be moved into a stub.
+    /// </returns>
+    /// <remarks>
+    ///     Refuses an instruction that never falls through before the request is met, because the bytes past a return
+    ///     belong to the next function. Also refuses a call through a register or memory anywhere in the run, because
+    ///     the moved call would leave the stub's address on the stack for a thread to return to.
+    /// </remarks>
+    public static bool TryStealLength(ReadOnlySpan<byte> code, bool is64Bit, int atLeast, out int length, out bool anyRelative)
+    {
+        length = 0;
+        anyRelative = false;
+
+        if (atLeast < 1)
+        {
+            return false;
+        }
+
+        int total = 0;
+        bool relative = false;
+
+        while (total < atLeast)
+        {
+            if (!TryDecode(code[total..], is64Bit, out int size, out bool isRelative))
+            {
+                return false;
+            }
+
+            var flow = FlowOf(code[total..], is64Bit);
+            if (flow == Flow.Calls || (flow == Flow.Ends && total + size < atLeast))
+            {
+                return false;
+            }
+
+            total += size;
+            relative |= isRelative;
+        }
+
+        length = total;
+        anyRelative = relative;
+
+        return true;
+    }
+
     private static bool HasModRm(Shape shape)
     {
         return shape is Shape.ModRm
@@ -145,6 +203,43 @@ internal static class InstructionLength
             or Shape.MovImm8
             or Shape.MovImmZ
             or Shape.Group5;
+    }
+
+    // Returns whether a decoded instruction falls through, ends the straight path or calls through a register or memory.
+    private static Flow FlowOf(ReadOnlySpan<byte> code, bool is64Bit)
+    {
+        int pos = 0;
+
+        while (pos < code.Length && code[pos] is 0x66 or 0x67 or 0xF0 or 0xF2 or 0xF3 or 0x26 or 0x2E or 0x36 or 0x3E or 0x64 or 0x65)
+        {
+            pos++;
+        }
+
+        if (is64Bit && pos < code.Length && (code[pos] & 0xF0) == 0x40)
+        {
+            pos++;
+        }
+
+        if (pos + 1 > code.Length)
+        {
+            return Flow.Falls;
+        }
+
+        int next = pos + 1 < code.Length ? code[pos + 1] : 0;
+
+        return code[pos] switch
+        {
+            // ret, ret imm16, the far returns, int3 and iret
+            0xC2 or 0xC3 or 0xCA or 0xCB or 0xCC or 0xCF => Flow.Ends,
+            0x0F when next == 0x0B => Flow.Ends, // ud2
+            0xFF => ((next >> 3) & 7) switch
+            {
+                2 or 3 => Flow.Calls,
+                4 or 5 => Flow.Ends,
+                _ => Flow.Falls,
+            },
+            _ => Flow.Falls,
+        };
     }
 
     // Returns the ModRM reg field too, because the group opcodes keep part of their opcode in it.
@@ -464,5 +559,12 @@ internal static class InstructionLength
         MovImm8,
         MovImmZ,
         Group5,
+    }
+
+    private enum Flow
+    {
+        Falls,
+        Ends,
+        Calls,
     }
 }
