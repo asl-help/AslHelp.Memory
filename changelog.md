@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `Scan.For`, `Scan.Forward`, `Scan.Backward`, `ScanStep` and `ScanWindow` for chained scans that search around the previous step's match.
 - `AddressResolver` with `Relative`, `Displacement` and `Offset` for turning a match into the address an instruction references.
 - `MergeReadable` for joining adjacent readable `MemoryRegion`s into contiguous `MemoryRange`s.
+- `PeDirectory`, `PeDataDirectory` and `GetDataDirectory` in `AslHelp.Memory.Pe` for reading a loaded module's PE data directory through any `IMemoryReader`.
+- `GetExport` for finding the address of a module's named export with a binary search over its sorted name table.
 - `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.
 
 [Unreleased]: https://github.com/asl-help/AslHelp.Memory/commits/main
