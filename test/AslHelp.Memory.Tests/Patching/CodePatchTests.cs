@@ -611,6 +611,168 @@ public partial class CodePatchTests
         Assert.That(result.Error!.Message, Does.Contain("room"));
     }
 
+    [Test]
+    public void TryReadCall_AnEvenSequenceEitherSideOfThePayload_AcceptsTheRead()
+    {
+        byte[] payload = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        StandingPatch standing = new();
+        standing.WriteSequence(4);
+        standing.WritePayload(payload);
+
+        var patch = StandingPatch.Installed();
+
+        Span<byte> into = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(read, Is.True);
+            Assert.That(into.ToArray(), Is.EqualTo(payload));
+            Assert.That(standing.SequenceReads, Is.EqualTo(2));
+        }
+    }
+
+    [Test]
+    public void TryReadCall_AnOddSequence_AsksAgainRatherThanReading()
+    {
+        byte[] payload = [0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7];
+
+        StandingPatch standing = new();
+        standing.WritePayload(payload);
+
+        // Makes the sequence odd on the first read, as if the stub were midway through writing the payload. Makes it even
+        // and stable from then on.
+        standing.BeforeSequenceRead = reads => standing.WriteSequence(reads == 0 ? 3ul : 4ul);
+
+        var patch = StandingPatch.Installed();
+
+        Span<byte> into = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(read, Is.True);
+            Assert.That(into.ToArray(), Is.EqualTo(payload));
+
+            // Expects the odd read, then the 2 reads that agreed.
+            Assert.That(standing.SequenceReads, Is.EqualTo(3));
+        }
+    }
+
+    [Test]
+    public void TryReadCall_ATargetThatNeverStopsWriting_SaysSoRatherThanHandingBackHalfAPayload()
+    {
+        StandingPatch standing = new();
+        standing.WriteSequence(3);
+
+        var patch = StandingPatch.Installed();
+
+        Span<byte> into = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(read, Is.False);
+            Assert.That(standing.SequenceReads, Is.EqualTo(8));
+        }
+    }
+
+    // A call that arrives between the 2 reads isn't accepted, since the reads come back even and different and the payload
+    // can't be attributed to either call.
+    [Test]
+    public void TryReadCall_ACallLandingBetweenTheTwoReads_DoesNotAcceptIt()
+    {
+        StandingPatch standing = new();
+
+        standing.BeforeSequenceRead = reads => standing.WriteSequence((ulong)(reads * 2));
+
+        var patch = StandingPatch.Installed();
+
+        Span<byte> into = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(read, Is.False);
+            Assert.That(standing.SequenceReads, Is.EqualTo(16));
+        }
+    }
+
+    [Test]
+    public void TryReadCall_AReadWiderThanTheRecordsPayload_RefusesIt()
+    {
+        StandingPatch standing = new();
+        var patch = StandingPatch.Installed();
+
+        Assert.That(
+            () => patch.TryReadCall(standing.Memory, new byte[CaptureLayout.PayloadSize + 1]),
+            Throws.InstanceOf<ArgumentOutOfRangeException>());
+    }
+
+    // A patch that captures nothing reports that instead of returning zeroes, since its record stays at zero and the
+    // protocol would read the even, equal sequence as a whole capture of null.
+    [Test]
+    public void TryReadCall_APatchThatCapturesNothing_SaysSoRatherThanAnsweringZeroes()
+    {
+        StandingPatch standing = new();
+        standing.WriteSequence(4);
+
+        var patch = standing.Adopt();
+
+        var result = patch.TryReadCall(standing.Memory, new byte[8]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(patch.WasAdopted, Is.True);
+            Assert.That(patch.Captures, Is.False);
+            Assert.That(result.IsErr, Is.True);
+            Assert.That(result.Error!.Message, Does.Contain("captures nothing"));
+
+            // The read is refused before the record is touched, because the record has nothing to check.
+            Assert.That(standing.SequenceReads, Is.Zero);
+        }
+    }
+    // A page composed for an entry reads back as the patch for that entry.
+    [Test]
+    public void Adopt_AComposedPage_ReadsItBack()
+    {
+        Address entry = new(0x20000);
+        var slot = entry + 0x40;
+        var record = entry + 0x200;
+        byte[] bytes = new byte[0x200 + CaptureLayout.RecordSize];
+
+        byte[] page = CodePatch.Compose(entry, slot, record, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
+        page.CopyTo(bytes, 0x40);
+        bytes[0] = 0xE9;
+        BitConverter.GetBytes((int)(slot + 0x30 - (entry + 5))).CopyTo(bytes, 1);
+
+        var patch = CodePatch.Adopt(new BufferMemory(entry, bytes, MemoryLayout.X64), entry).Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(patch.Entry, Is.EqualTo(entry));
+            Assert.That(patch.Slot, Is.EqualTo(slot));
+            Assert.That(patch.Record, Is.EqualTo(record));
+            Assert.That(patch.Original, Is.EqualTo(_prologue));
+            Assert.That(patch.WasAdopted, Is.True);
+        }
+    }
+
+    // An entry that doesn't start with a jump into one of this library's pages isn't adopted.
+    [TestCase("4883EC2890", "isn't redirected")]
+    [TestCase("E900000000", "other than this library")]
+    public void Adopt_AnEntryWithoutOurPatch_Fails(string hex, string reason)
+    {
+        Address entry = new(0x20000);
+        byte[] bytes = new byte[0x200];
+        Bytes(hex).CopyTo(bytes, 0);
+
+        var result = CodePatch.Adopt(new BufferMemory(entry, bytes, MemoryLayout.X64), entry);
+
+        Assert.That(result.Error!.Message, Does.Contain(reason));
+    }
+
     private static BufferMemory Memory(Address at, byte[] bytes, MemoryLayout layout)
     {
         byte[] padded = new byte[bytes.Length + 32];

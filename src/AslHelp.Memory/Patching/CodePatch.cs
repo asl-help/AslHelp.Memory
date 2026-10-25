@@ -93,6 +93,69 @@ public sealed class CodePatch
     internal byte[] Original { get; }
 
     /// <summary>
+    ///     Recognizes a patch this library already installed at <paramref name="entry"/>.
+    /// </summary>
+    /// <remarks>
+    ///     A live patch is adopted rather than replaced. The target is already running correctly with it, so
+    ///     un-patching to patch again is 2 more writes into a game for no gain. It also opens a window where the entry
+    ///     is neither one thing nor the other.
+    /// </remarks>
+    /// <param name="memory">The target's memory.</param>
+    /// <param name="entry">The method entry to inspect.</param>
+    /// <returns>
+    ///     The patch when one of ours is there, otherwise a failed result with what was found instead.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="memory"/> is <see langword="null"/>.
+    /// </exception>
+    public static Result<CodePatch> Adopt(IMemoryReader memory, Address entry)
+    {
+        ArgumentNullException.ThrowIfNull(memory);
+
+        if (!memory.ReadArray<byte>(entry, JumpLength).TryUnwrap(out byte[]? head))
+        {
+            return PatchError.UnreadableEntry(entry);
+        }
+
+        if (head[0] != 0xE9)
+        {
+            return PatchError.NotRedirected();
+        }
+
+        int displacement = BitConverter.ToInt32(head, 1);
+        var slot = entry + JumpLength + displacement - StubAt;
+
+        if (!memory.ReadArray<byte>(slot, StubAt).TryUnwrap(out byte[]? header)
+            || BitConverter.ToUInt32(header, MarkerAt) != Marker)
+        {
+            return PatchError.NotOurs();
+        }
+
+        if (BitConverter.ToUInt16(header, VersionAt) != Version)
+        {
+            return PatchError.AnotherVersion();
+        }
+
+        if ((Address)BitConverter.ToUInt64(header, EntryAt) != entry)
+        {
+            return PatchError.ClaimsAnotherEntry();
+        }
+
+        int stolen = header[StolenLengthAt];
+
+        if (stolen is < JumpLength or > MaxStolen)
+        {
+            return PatchError.ImplausibleStolenLength(stolen);
+        }
+
+        byte[] original = new byte[stolen];
+        Buffer.BlockCopy(header, OriginalAt, original, 0, stolen);
+
+        var record = (Address)BitConverter.ToUInt64(header, RecordPointerAt);
+
+        return new CodePatch(entry, slot, record, original, adopted: true, captures: false);
+    }
+    /// <summary>
     ///     Answers whether a stub copying <paramref name="layout"/> fits the slot it is written into.
     /// </summary>
     /// <remarks>
@@ -122,6 +185,99 @@ public sealed class CodePatch
         return Compose(Address.Zero, Address.Zero, Address.Zero, new byte[MaxStolen], layout, assembler).IsOk;
     }
 
+    /// <summary>
+    ///     Reads how many times the patched entry has been reached.
+    /// </summary>
+    /// <param name="memory">The target's memory.</param>
+    /// <returns>
+    ///     The count on success, otherwise a failed result.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="memory"/> is <see langword="null"/>.
+    /// </exception>
+    public Result<ulong> ReadCount(IMemoryReader memory)
+    {
+        ArgumentNullException.ThrowIfNull(memory);
+
+        return memory.Read<ulong>(Record + CountAt);
+    }
+
+    /// <summary>
+    ///     Reads what the stub copied out of the call it last counted.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The stub claims a sequence word before it writes and steps it on after, so the word is odd for exactly
+    ///         as long as the payload is half written and even either side of it. This reads the sequence, the payload
+    ///         and the sequence again as 3 ordered reads and takes the payload only when the 2 sequences are
+    ///         equal and even, which is the 1 combination that shows nothing was written while it was being read. One
+    ///         thread writes at a time: a call arriving while another is storing is counted and not captured.
+    ///     </para>
+    ///     <para>
+    ///         Reading the payload and trusting the count beside it to say which call it came from does not work: the
+    ///         target keeps running through the read, so one read is not one moment.
+    ///     </para>
+    ///     <para>
+    ///         The count needs none of this: it's 1 aligned word that reads exactly at any rate. The stub counts a
+    ///         call before capturing it, so a count read after this read includes the call the payload came from.
+    ///     </para>
+    /// </remarks>
+    /// <param name="memory">The target's memory.</param>
+    /// <param name="into">Where the payload goes, whose length is how much of it to read.</param>
+    /// <returns>
+    ///     <see langword="true"/> when a whole payload was caught between 2 calls, <see langword="false"/> when the
+    ///     target was still writing on every attempt, otherwise a failed result, which is also what a patch nothing
+    ///     captured into answers.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="memory"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="into"/> is longer than a record's payload.
+    /// </exception>
+    public Result<bool> TryReadCall(IMemoryReader memory, Span<byte> into)
+    {
+        ArgumentNullException.ThrowIfNull(memory);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(into.Length, CaptureLayout.PayloadSize, nameof(into));
+
+        // A record nothing captures into is all zeroes. Its sequence reads even and equal. The protocol below
+        // would call that a whole capture of null.
+        if (!Captures)
+        {
+            return PatchError.CapturesNothing(Entry);
+        }
+
+        const int ReadAttempts = 8;
+        for (int attempt = 0; attempt < ReadAttempts; attempt++)
+        {
+            if (!memory.Read<ulong>(Record + SequenceAt).TryUnwrap(out ulong before, out var beforeError))
+            {
+                return beforeError;
+            }
+
+            if ((before & 1) != 0)
+            {
+                continue;
+            }
+
+            if (memory.Read(Record + CaptureLayout.PayloadAt, into).TryUnwrapErr(out var payloadError))
+            {
+                return payloadError;
+            }
+
+            if (!memory.Read<ulong>(Record + SequenceAt).TryUnwrap(out ulong after, out var afterError))
+            {
+                return afterError;
+            }
+
+            if (after == before)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
     /// <summary>
     ///     Settles everything about an entry that does not depend on where its stub will stand.
     /// </summary>

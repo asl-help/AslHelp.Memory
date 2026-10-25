@@ -74,6 +74,74 @@ internal sealed record PatchError : ResultError
     }
 
     /// <summary>
+    ///     Creates the error for an entry that isn't redirected.
+    /// </summary>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError NotRedirected()
+    {
+        return new("The entry isn't redirected.");
+    }
+
+    /// <summary>
+    ///     Creates the error for an entry redirected by something other than this library.
+    /// </summary>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError NotOurs()
+    {
+        return new("The entry is redirected by something other than this library, so it's left alone.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a patch written by another version of this library.
+    /// </summary>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError AnotherVersion()
+    {
+        return new("The entry has a patch from another version of this library, which only that version can remove.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a page that claims a different entry than the one it was reached from.
+    /// </summary>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError ClaimsAnotherEntry()
+    {
+        return new("The page claims a different entry, so nothing is assumed about it.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a page whose displaced length isn't one this library writes.
+    /// </summary>
+    /// <param name="stolen">The length the page records.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError ImplausibleStolenLength(int stolen)
+    {
+        return new($"The page records {stolen} displaced bytes, which isn't a length this library writes, so it's left alone.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a call read on a patch that only counts.
+    /// </summary>
+    /// <param name="entry">The patched entry.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError CapturesNothing(Address entry)
+    {
+        return new($"The patch at {entry} captures nothing, so there's no call to read.");
+    }
+
+    /// <summary>
     ///     Creates the error for a stub that doesn't fit its slot.
     /// </summary>
     /// <param name="entry">The entry the stub is for.</param>
