@@ -37,7 +37,7 @@ internal abstract class IntelStubAssembler : IStubAssembler
     {
         if (index < 0)
         {
-            return PatchError.NotAStackSlot(index);
+            return CaptureError.NotAStackSlot(index);
         }
 
         PushScratch(code);

@@ -31,13 +31,13 @@ internal sealed class X86StubAssembler : IntelStubAssembler
     /// <inheritdoc/>
     public override Result CaptureRegister(CodeWriter code, Address target, int index, int width, bool indirect)
     {
-        return PatchError.NoRegisters();
+        return CaptureError.NoRegisters();
     }
 
     /// <inheritdoc/>
     public override Result CaptureFloatRegister(CodeWriter code, Address target, int index, int width, bool indirect)
     {
-        return PatchError.NoRegisters();
+        return CaptureError.NoRegisters();
     }
 
     protected override void Store(CodeWriter code, Address target, int width)

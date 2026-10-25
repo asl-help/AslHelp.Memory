@@ -89,7 +89,7 @@ public sealed class CaptureLayout
                 CaptureSource.Register => assembler.CaptureRegister(code, target, item.Index, item.Width, item.Indirect),
                 CaptureSource.FloatRegister => assembler.CaptureFloatRegister(code, target, item.Index, item.Width, item.Indirect),
                 CaptureSource.Stack => assembler.CaptureStack(code, target, item.Index, item.Width, item.Indirect),
-                _ => PatchError.UnknownCaptureSource(item.Source),
+                _ => CaptureError.UnknownCaptureSource(item.Source),
             };
 
             if (written.TryUnwrapErr(out var error))
@@ -111,17 +111,17 @@ public sealed class CaptureLayout
 
             if (item.Width is not (1 or 2 or 4 or 8))
             {
-                return PatchError.UnstorableWidth(item.Width);
+                return CaptureError.UnstorableWidth(item.Width);
             }
 
             if (item.Width > pointerWidth)
             {
-                return PatchError.WidthBeyondPointer(item.Width, pointerWidth);
+                return CaptureError.WidthBeyondPointer(item.Width, pointerWidth);
             }
 
             if (item.RecordOffset < PayloadAt || item.RecordOffset + item.Width > RecordSize)
             {
-                return PatchError.OutsidePayload(item.Width, item.RecordOffset);
+                return CaptureError.OutsidePayload(item.Width, item.RecordOffset);
             }
 
             for (int j = 0; j < i; j++)
@@ -131,7 +131,7 @@ public sealed class CaptureLayout
                 if (item.RecordOffset < earlier.RecordOffset + earlier.Width
                     && earlier.RecordOffset < item.RecordOffset + item.Width)
                 {
-                    return PatchError.OverlappingCaptures(earlier.RecordOffset, item.RecordOffset);
+                    return CaptureError.OverlappingCaptures(earlier.RecordOffset, item.RecordOffset);
                 }
             }
         }

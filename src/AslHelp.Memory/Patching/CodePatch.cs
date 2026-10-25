@@ -114,12 +114,12 @@ public sealed class CodePatch
 
         if (!memory.ReadArray<byte>(entry, JumpLength).TryUnwrap(out byte[]? head))
         {
-            return PatchError.UnreadableEntry(entry);
+            return PlanError.UnreadableEntry(entry);
         }
 
         if (head[0] != 0xE9)
         {
-            return PatchError.NotRedirected();
+            return AdoptError.NotRedirected();
         }
 
         int displacement = BitConverter.ToInt32(head, 1);
@@ -128,24 +128,24 @@ public sealed class CodePatch
         if (!memory.ReadArray<byte>(slot, StubAt).TryUnwrap(out byte[]? header)
             || BitConverter.ToUInt32(header, MarkerAt) != Marker)
         {
-            return PatchError.NotOurs();
+            return AdoptError.NotOurs();
         }
 
         if (BitConverter.ToUInt16(header, VersionAt) != Version)
         {
-            return PatchError.AnotherVersion();
+            return AdoptError.AnotherVersion();
         }
 
         if ((Address)BitConverter.ToUInt64(header, EntryAt) != entry)
         {
-            return PatchError.ClaimsAnotherEntry();
+            return AdoptError.ClaimsAnotherEntry();
         }
 
         int stolen = header[StolenLengthAt];
 
         if (stolen is < JumpLength or > MaxStolen)
         {
-            return PatchError.ImplausibleStolenLength(stolen);
+            return AdoptError.ImplausibleStolenLength(stolen);
         }
 
         byte[] original = new byte[stolen];
@@ -244,7 +244,7 @@ public sealed class CodePatch
         // would call that a whole capture of null.
         if (!Captures)
         {
-            return PatchError.CapturesNothing(Entry);
+            return AdoptError.CapturesNothing(Entry);
         }
 
         const int ReadAttempts = 8;
@@ -302,30 +302,30 @@ public sealed class CodePatch
         // the target cannot observe half of.
         if ((entry.Value & 7) > 8 - JumpLength)
         {
-            return PatchError.StraddlesAWord(entry);
+            return PlanError.StraddlesAWord(entry);
         }
 
         if (!memory.ReadArray<byte>(entry, MaxStolen).TryUnwrap(out byte[]? prologue))
         {
-            return PatchError.UnreadableEntry(entry);
+            return PlanError.UnreadableEntry(entry);
         }
 
         int pointerSize = memory.Layout.PointerSize;
         if (pointerSize is not (4 or 8))
         {
-            return PatchError.NotIntel(pointerSize);
+            return PlanError.NotIntel(pointerSize);
         }
 
         bool is64Bit = pointerSize == 8;
 
         if (!InstructionLength.TryStealLength(prologue, is64Bit, JumpLength, out int stolen, out bool relative))
         {
-            return PatchError.UnrecognisedPrologue(entry);
+            return PlanError.UnrecognisedPrologue(entry);
         }
 
         if (relative)
         {
-            return PatchError.PositionDependentEntry(entry);
+            return PlanError.PositionDependentEntry(entry);
         }
 
         byte[] original = new byte[stolen];
@@ -389,7 +389,7 @@ public sealed class CodePatch
 
         if (StubAt + code.Length > SlotSize)
         {
-            return PatchError.StubTooLarge(entry, code.Length, SlotSize - StubAt);
+            return PlanError.StubTooLarge(entry, code.Length, SlotSize - StubAt);
         }
 
         byte[] composed = [.. header, .. code.Written];

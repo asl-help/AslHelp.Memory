@@ -49,7 +49,7 @@ internal sealed class X64StubAssembler : IntelStubAssembler
 
         if (register < 0)
         {
-            return PatchError.NotInARegister(index);
+            return CaptureError.NotInARegister(index);
         }
 
         if (!indirect)
@@ -102,17 +102,17 @@ internal sealed class X64StubAssembler : IntelStubAssembler
     {
         if ((uint)index >= 4)
         {
-            return PatchError.NotInARegister(index);
+            return CaptureError.NotInARegister(index);
         }
 
         if (width is not (4 or 8))
         {
-            return PatchError.FloatWidth(width);
+            return CaptureError.FloatWidth(width);
         }
 
         if (indirect)
         {
-            return PatchError.FloatIsNotAnAddress();
+            return CaptureError.FloatIsNotAnAddress();
         }
 
         // movss or movsd [rip+disp32], xmm<index>
