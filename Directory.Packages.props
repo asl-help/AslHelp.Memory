@@ -32,6 +32,7 @@
   <PropertyGroup>
     <MeziantouPolyfill_IncludedPolyfills>
       M:System.ArgumentNullException.ThrowIfNull(System.Object,System.String);
+      M:System.ArgumentOutOfRangeException.ThrowIfGreaterThan``1(;
       M:System.ArgumentOutOfRangeException.ThrowIfNegative``1(;
       M:System.Collections.Generic.Dictionary`2.TryAdd(`0,`1);
       M:System.ObjectDisposedException.ThrowIf(System.Boolean,System.Object);
