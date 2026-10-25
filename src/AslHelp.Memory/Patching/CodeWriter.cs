@@ -43,9 +43,13 @@ internal sealed class CodeWriter(
     /// </summary>
     /// <param name="target">Where the displacement reaches.</param>
     /// <param name="trailing">How many bytes of the instruction follow the displacement, e.g. an immediate.</param>
+    /// <remarks>
+    ///     Keeps the low 32 bits of the distance, because a 32-bit target wraps a relative jump at 4 GB. A 64-bit
+    ///     target has to be within 2 GB, which the caller checks before writing the stub.
+    /// </remarks>
     public void EmitRelative(Address target, int trailing = 0)
     {
-        EmitInt32((int)(target - (Here + 4 + trailing)));
+        EmitInt32(unchecked((int)(target - (Here + 4 + trailing))));
     }
 
     public void Patch(int at, byte value)

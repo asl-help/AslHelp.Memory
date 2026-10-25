@@ -16,7 +16,7 @@ internal sealed class X86StubAssembler : IntelStubAssembler
     {
         // lock bts dword [disp32], 0
         code.Emit(0xF0, 0x0F, 0xBA, 0x2D);
-        code.EmitInt32((int)sequence.Value);
+        code.EmitInt32(unchecked((int)(uint)sequence.Value));
         code.Emit(0x00);
     }
 
@@ -25,7 +25,7 @@ internal sealed class X86StubAssembler : IntelStubAssembler
     {
         // lock inc dword [disp32]
         code.Emit(0xF0, 0xFF, 0x05);
-        code.EmitInt32((int)counter.Value);
+        code.EmitInt32(unchecked((int)(uint)counter.Value));
     }
 
     /// <inheritdoc/>
@@ -46,7 +46,7 @@ internal sealed class X86StubAssembler : IntelStubAssembler
 
         // mov [disp32], eax
         code.Emit((byte)(width == 1 ? 0xA2 : 0xA3));
-        code.EmitInt32((int)target.Value);
+        code.EmitInt32(unchecked((int)(uint)target.Value));
     }
 
     protected override void RexW(CodeWriter code) { }

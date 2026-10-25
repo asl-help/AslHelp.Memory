@@ -14,6 +14,30 @@ internal sealed record AdoptError : ResultError
     public override string Message { get; }
 
     /// <summary>
+    ///     Creates the error for an entry whose bytes couldn't be read.
+    /// </summary>
+    /// <param name="entry">The entry.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static AdoptError UnreadableEntry(Address entry)
+    {
+        return new($"The code at {entry} couldn't be read, so no patch there can be adopted.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a page whose patch length isn't the 5-byte jump.
+    /// </summary>
+    /// <param name="length">The patch length the page records.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static AdoptError UnexpectedPatchLength(int length)
+    {
+        return new($"The page records a {length}-byte patch, and this library only writes a 5-byte jump, so it's left alone.");
+    }
+
+    /// <summary>
     ///     Creates the error for an entry that isn't redirected.
     /// </summary>
     /// <returns>

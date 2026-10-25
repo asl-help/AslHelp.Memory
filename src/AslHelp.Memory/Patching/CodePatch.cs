@@ -112,9 +112,15 @@ public sealed class CodePatch
     {
         ArgumentNullException.ThrowIfNull(memory);
 
+        int pointerSize = memory.Layout.PointerSize;
+        if (pointerSize is not (4 or 8))
+        {
+            return PlanError.NotIntel(pointerSize);
+        }
+
         if (!memory.ReadArray<byte>(entry, JumpLength).TryUnwrap(out byte[]? head))
         {
-            return PlanError.UnreadableEntry(entry);
+            return AdoptError.UnreadableEntry(entry);
         }
 
         if (head[0] != 0xE9)
@@ -124,6 +130,12 @@ public sealed class CodePatch
 
         int displacement = BitConverter.ToInt32(head, 1);
         var slot = entry + JumpLength + displacement - StubAt;
+
+        // Wraps at 4 GB like the jump itself, because a 32-bit target computes the jump in 32 bits.
+        if (pointerSize == 4)
+        {
+            slot = (Address)(slot.Value & uint.MaxValue);
+        }
 
         if (!memory.ReadArray<byte>(slot, StubAt).TryUnwrap(out byte[]? header)
             || BitConverter.ToUInt32(header, MarkerAt) != Marker)
@@ -141,6 +153,11 @@ public sealed class CodePatch
             return AdoptError.ClaimsAnotherEntry();
         }
 
+        if (header[PatchLengthAt] != JumpLength)
+        {
+            return AdoptError.UnexpectedPatchLength(header[PatchLengthAt]);
+        }
+
         int stolen = header[StolenLengthAt];
 
         if (stolen is < JumpLength or > MaxStolen)
@@ -155,6 +172,7 @@ public sealed class CodePatch
 
         return new CodePatch(entry, slot, record, original, adopted: true, captures: false);
     }
+
     /// <summary>
     ///     Answers whether a stub copying <paramref name="layout"/> fits the slot it is written into.
     /// </summary>

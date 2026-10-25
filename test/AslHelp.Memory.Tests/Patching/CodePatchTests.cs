@@ -759,6 +759,65 @@ public partial class CodePatchTests
         }
     }
 
+    // A 32-bit jump wraps at 4 GB, so a page above 2 GB is found from an entry below it.
+    [Test]
+    public void Adopt_A32BitPageAboveTwoGigabytes_ReadsItBack()
+    {
+        Address entry = new(0x00401000);
+        Address slot = new(0xC0000000);
+        Address record = new(0xBFFF0000);
+        byte[] page = CodePatch.Compose(entry, slot, record, _prologue32, CaptureLayout.None, StubAssembler.X86).Unwrap();
+
+        SparseMemory memory = new(MemoryLayout.X86);
+        memory.Map(slot, page);
+        memory.Map(entry, [0xE9, .. BitConverter.GetBytes(unchecked((int)(uint)(slot.Value + 0x30 - (entry.Value + 5))))]);
+
+        var patch = CodePatch.Adopt(memory, entry).Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(patch.Slot, Is.EqualTo(slot));
+            Assert.That(patch.Record, Is.EqualTo(record));
+        }
+    }
+
+    // A page whose patch length isn't the 5-byte jump isn't adopted.
+    [Test]
+    public void Adopt_APageWithAnotherPatchLength_Fails()
+    {
+        Address entry = new(0x20000);
+        var slot = entry + 0x40;
+        byte[] bytes = new byte[0x200 + CaptureLayout.RecordSize];
+
+        byte[] page = CodePatch.Compose(entry, slot, entry + 0x200, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
+        page[0x0E] = 14;
+        page.CopyTo(bytes, 0x40);
+        bytes[0] = 0xE9;
+        BitConverter.GetBytes((int)(slot + 0x30 - (entry + 5))).CopyTo(bytes, 1);
+
+        var result = CodePatch.Adopt(new BufferMemory(entry, bytes, MemoryLayout.X64), entry);
+
+        Assert.That(result.Error!.Message, Does.Contain("14"));
+    }
+
+    // An unreadable entry fails with an adoption error.
+    [Test]
+    public void Adopt_AnUnreadableEntry_Fails()
+    {
+        var result = CodePatch.Adopt(new BufferMemory(new Address(0x20000), new byte[2], MemoryLayout.X64), new Address(0x20000));
+
+        Assert.That(result.Error!.GetType().Name, Is.EqualTo("AdoptError"));
+    }
+
+    // A target that isn't x86 or x64 isn't adopted.
+    [Test]
+    public void Adopt_ANonIntelTarget_Fails()
+    {
+        var result = CodePatch.Adopt(new BufferMemory(new Address(0x20000), new byte[0x200], new MemoryLayout(2, ByteOrder.LittleEndian)), new Address(0x20000));
+
+        Assert.That(result.Error!.Message, Does.Contain("x86 and x64"));
+    }
+
     // An entry that doesn't start with a jump into one of this library's pages isn't adopted.
     [TestCase("4883EC2890", "isn't redirected")]
     [TestCase("E900000000", "other than this library")]
@@ -771,6 +830,36 @@ public partial class CodePatchTests
         var result = CodePatch.Adopt(new BufferMemory(entry, bytes, MemoryLayout.X64), entry);
 
         Assert.That(result.Error!.Message, Does.Contain(reason));
+    }
+
+    // Maps separate ranges, because a 32-bit entry and a page above 2 GB are too far apart for 1 buffer.
+    private sealed class SparseMemory(
+        MemoryLayout layout) : IMemoryReader
+    {
+        private readonly List<(Address Start, byte[] Bytes)> _ranges = [];
+
+        public MemoryLayout Layout => layout;
+
+        public void Map(Address start, byte[] bytes)
+        {
+            byte[] padded = new byte[bytes.Length + 32];
+            bytes.CopyTo(padded, 0);
+            _ranges.Add((start, padded));
+        }
+
+        public Result Read(Address address, Span<byte> buffer)
+        {
+            foreach (var (start, bytes) in _ranges)
+            {
+                if (address >= start && address - start + buffer.Length <= bytes.Length)
+                {
+                    bytes.AsSpan((int)(address - start), buffer.Length).CopyTo(buffer);
+                    return Result.Ok();
+                }
+            }
+
+            return Errors.MemoryError.Unreadable(address, buffer.Length);
+        }
     }
 
     private static BufferMemory Memory(Address at, byte[] bytes, MemoryLayout layout)
