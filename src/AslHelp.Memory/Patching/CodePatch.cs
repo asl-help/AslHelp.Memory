@@ -260,6 +260,11 @@ public sealed class CodePatch
 
         // A record nothing captures into is all zeroes. Its sequence reads even and equal. The protocol below
         // would call that a whole capture of null.
+        if (WasAdopted)
+        {
+            return AdoptError.UnknownLayout(Entry);
+        }
+
         if (!Captures)
         {
             return AdoptError.CapturesNothing(Entry);

@@ -14,6 +14,18 @@ internal sealed record AdoptError : ResultError
     public override string Message { get; }
 
     /// <summary>
+    ///     Creates the error for a call read on an adopted patch.
+    /// </summary>
+    /// <param name="entry">The patched entry.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static AdoptError UnknownLayout(Address entry)
+    {
+        return new($"The patch at {entry} was adopted, and its layout isn't known, so its calls can't be read.");
+    }
+
+    /// <summary>
     ///     Creates the error for an entry whose bytes couldn't be read.
     /// </summary>
     /// <param name="entry">The entry.</param>

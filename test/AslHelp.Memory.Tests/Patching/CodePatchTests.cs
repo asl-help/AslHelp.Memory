@@ -710,10 +710,9 @@ public partial class CodePatchTests
             Throws.InstanceOf<ArgumentOutOfRangeException>());
     }
 
-    // A patch that captures nothing reports that instead of returning zeroes, since its record stays at zero and the
-    // protocol would read the even, equal sequence as a whole capture of null.
+    // An adopted patch can't be read, because its page doesn't record which layout its writer used.
     [Test]
-    public void TryReadCall_APatchThatCapturesNothing_SaysSoRatherThanAnsweringZeroes()
+    public void TryReadCall_AnAdoptedPatch_ReportsTheLayoutAsUnknown()
     {
         StandingPatch standing = new();
         standing.WriteSequence(4);
@@ -726,13 +725,27 @@ public partial class CodePatchTests
         {
             Assert.That(patch.WasAdopted, Is.True);
             Assert.That(patch.Captures, Is.False);
-            Assert.That(result.IsErr, Is.True);
-            Assert.That(result.Error!.Message, Does.Contain("captures nothing"));
-
-            // The read is refused before the record is touched, because the record has nothing to check.
+            Assert.That(result.Error!.Message, Does.Contain("isn't known"));
             Assert.That(standing.SequenceReads, Is.Zero);
         }
     }
+
+    // A patch installed with an empty layout reports that it captures nothing instead of returning zeroes.
+    [Test]
+    public void TryReadCall_APatchThatOnlyCounts_ReportsThatItCapturesNothing()
+    {
+        StandingPatch standing = new();
+        CodePatch patch = new(new Address(0x20000), new Address(0x20040), new Address(0x20200), new byte[5], adopted: false, captures: false);
+
+        var result = patch.TryReadCall(standing.Memory, new byte[8]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error!.Message, Does.Contain("captures nothing"));
+            Assert.That(standing.SequenceReads, Is.Zero);
+        }
+    }
+
     // A page composed for an entry reads back as the patch for that entry.
     [Test]
     public void Adopt_AComposedPage_ReadsItBack()
