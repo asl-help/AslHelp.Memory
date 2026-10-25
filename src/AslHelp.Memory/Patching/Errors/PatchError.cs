@@ -14,6 +14,69 @@ internal sealed record PatchError : ResultError
     public override string Message { get; }
 
     /// <summary>
+    ///     Creates the error for a capture width that no single store covers.
+    /// </summary>
+    /// <param name="width">The width that was asked for.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError UnstorableWidth(int width)
+    {
+        return new($"A capture of {width} bytes isn't a width 1 store covers. A store covers 1, 2, 4 or 8 bytes.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a capture wider than a store on the target moves.
+    /// </summary>
+    /// <param name="width">The width that was asked for.</param>
+    /// <param name="pointerWidth">The width of a store on the target.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError WidthBeyondPointer(int width, int pointerWidth)
+    {
+        return new($"A capture of {width} bytes is wider than the {pointerWidth} bytes a store on this target moves.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a capture that would write outside the record's payload.
+    /// </summary>
+    /// <param name="width">The width of the capture.</param>
+    /// <param name="recordOffset">The offset the capture writes at.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError OutsidePayload(int width, int recordOffset)
+    {
+        return new($"A capture of {width} bytes at 0x{recordOffset:X} falls outside the record's payload.");
+    }
+
+    /// <summary>
+    ///     Creates the error for 2 captures that write over each other.
+    /// </summary>
+    /// <param name="earlier">The offset of the first capture.</param>
+    /// <param name="later">The offset of the capture that overlaps it.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError OverlappingCaptures(int earlier, int later)
+    {
+        return new($"The captures at 0x{earlier:X} and 0x{later:X} overlap, so 1 would be read as the other.");
+    }
+
+    /// <summary>
+    ///     Creates the error for a capture source a stub can't read from.
+    /// </summary>
+    /// <param name="source">The source that was asked for.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static PatchError UnknownCaptureSource(CaptureSource source)
+    {
+        return new($"A stub can't capture from {source}.");
+    }
+
+    /// <summary>
     ///     Creates the error for a register capture on a 32-bit target.
     /// </summary>
     /// <returns>
