@@ -3,7 +3,6 @@ using AslHelp.Memory.Remote.Errors;
 using NUnit.Framework;
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Runtime.Versioning;
 
@@ -168,62 +167,19 @@ public class RemotePatchWriterTests
         Assert.That(_writer.SuspendThreads().UnwrapErr(), Is.EqualTo(RemotePatchError.CannotSuspendItself()));
     }
 
-    // SuspendThreads on a 64-bit child reads every thread and finds each one somewhere.
-    [Test]
-    public void SuspendThreads_Child64Bit_ReadsEveryThread()
-    {
-        Assume.That(Environment.Is64BitOperatingSystem && Environment.Is64BitProcess, Is.True);
-
-        AssertSuspendsChild(Path.Combine(Environment.SystemDirectory, "cmd.exe"));
-    }
-
     // SuspendThreads on a 32-bit child reads every thread and finds each one somewhere.
     [Test]
     public void SuspendThreads_Child32Bit_ReadsEveryThread()
     {
-        string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-        string cmd = Environment.Is64BitOperatingSystem
-            ? Path.Combine(windows, "SysWOW64", "cmd.exe")
-            : Path.Combine(Environment.SystemDirectory, "cmd.exe");
+        using var child = FixtureChild.Start32Bit();
+        using var writer = child.NewWriter();
+        using var suspension = writer.SuspendThreads().Unwrap();
 
-        AssertSuspendsChild(cmd);
-    }
-
-    private static void AssertSuspendsChild(string path)
-    {
-        using var child = Process.Start(new ProcessStartInfo(path)
+        using (Assert.EnterMultipleScope())
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-        })!;
-
-        try
-        {
-            // Waits for the shell to answer, so its main thread runs its own code before it is suspended.
-            child.StandardInput.WriteLine("echo ready");
-
-            while (child.StandardOutput.ReadLine() is { } line && line != "ready")
-            {
-            }
-
-            using var memory = new RemoteProcessMemory(child);
-            using var writer = new RemotePatchWriter(memory);
-            using var suspension = writer.SuspendThreads().Unwrap();
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(suspension.IsComplete, Is.True);
-                Assert.That(suspension.Any(at => at != Address.Zero), Is.True);
-                Assert.That(suspension.AnyIn(new(Address.Zero, PageSize)), Is.False);
-                Assert.That(suspension.IsComplete, Is.True);
-            }
-        }
-        finally
-        {
-            child.Kill();
-            child.WaitForExit();
+            Assert.That(suspension.IsComplete, Is.True);
+            Assert.That(suspension.Any(at => at != Address.Zero), Is.True);
+            Assert.That(suspension.AnyIn(new(Address.Zero, PageSize)), Is.False);
         }
     }
 

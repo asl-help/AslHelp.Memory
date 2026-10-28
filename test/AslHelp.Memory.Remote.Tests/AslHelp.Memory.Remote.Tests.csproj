@@ -1,5 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Fixture paths. FixtureDir matches the fixture PublishDir. -->
+  <PropertyGroup>
+    <FixtureDir>$(ArtifactsPath)/fixture</FixtureDir>
+    <FixtureName>AslHelp.Memory.Remote.Tests.Fixture</FixtureName>
+
+    <FixtureExe>$(FixtureDir)/win-x64/$(FixtureName).exe</FixtureExe>
+    <FixtureExe32>$(FixtureDir)/win-x86/$(FixtureName).exe</FixtureExe32>
+    <FixtureProject>$(TestPath)/$(FixtureName)/$(FixtureName).csproj</FixtureProject>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="$(SrcPath)/AslHelp.Memory.Remote/AslHelp.Memory.Remote.csproj" />
   </ItemGroup>
@@ -11,5 +21,23 @@
     <PackageReference Include="NUnit.Analyzers" />
     <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="FixtureExe" Value="$(FixtureExe)" />
+    <AssemblyMetadata Include="FixtureExe32" Value="$(FixtureExe32)" />
+  </ItemGroup>
+
+  <!-- Fixture publish, net11.0 only. The win-x64 call reuses the solution build. -->
+  <Target Name="PublishFixture"
+          AfterTargets="Build"
+          Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(TargetFramework)' == 'net11.0'">
+    <MSBuild Projects="$(FixtureProject)"
+             RemoveProperties="TargetFramework;RuntimeIdentifier"
+             Targets="Publish" />
+    <MSBuild Projects="$(FixtureProject)"
+             Properties="RuntimeIdentifier=win-x86"
+             RemoveProperties="TargetFramework"
+             Targets="Publish" />
+  </Target>
 
 </Project>

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Native exe, not a test target. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <TargetFrameworks />
+
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- NativeAOT publish, Windows only. Defaults to win-x64. -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
+
+    <IlcExportUnmanagedEntrypoints>true</IlcExportUnmanagedEntrypoints>
+    <PublishAot>true</PublishAot>
+    <PublishDir>$(ArtifactsPath)/fixture/$(RuntimeIdentifier)/</PublishDir>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <!-- 2 GB user space for the 32-bit fixture. -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x86'">
+    <LinkerArg Include="/LARGEADDRESSAWARE:NO" />
+  </ItemGroup>
+
+</Project>
