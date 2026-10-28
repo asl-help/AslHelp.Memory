@@ -11,7 +11,7 @@ namespace AslHelp.Memory.Patching;
 ///     and have the answer still be true when the bytes are written. Disposing the suspension resumes every thread
 ///     it suspended.
 /// </remarks>
-internal interface IThreadSuspension : IDisposable
+public interface IThreadSuspension : IDisposable
 {
     /// <summary>
     ///     Gets a value indicating whether every thread of the target is suspended and can be asked where it stands.

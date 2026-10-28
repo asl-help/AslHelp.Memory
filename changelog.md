@@ -11,7 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `CodePatch.Adopt`, `ReadCount` and `TryReadCall` for finding a patch at an entry and reading how often it ran and what the last call passed.
 - `IPatchInstaller` in `AslHelp.Memory.Patching` for what redirects an entry into a stub and keeps the target still while several watchers ask at once.
 - `CodePatch.Install` for writing a planned patch's stub into a `PatchPool` slot and redirecting the entry with 1 aligned 8-byte write while the target's threads are suspended, with `Restore` for putting the displaced bytes back the same way.
+- `IPatchWriter` and `IThreadSuspension` in `AslHelp.Memory.Patching` for the writes and thread suspension a `PatchSession` needs from a process, so a package can supply them for its platform.
 - `PatchSession` in `AslHelp.Memory.Patching`, the `IPatchInstaller` that keeps the ledger of 1 run. It adopts a patch already at an entry, returns the standing patch for a repeated entry, shares a `PatchPool` between entries in its reach and on `Dispose` puts every entry back before releasing each pool no thread stands in.
+- `RemotePatchWriter` in `AslHelp.Memory.Remote`, the `IPatchWriter` for a running Windows process. It reserves memory within a relative jump of an anchor, writes code with each page's own protection put back and suspends the target's threads while a patch is written.
 
 ## [0.1.0-alpha.1] - 2026-10-25
 

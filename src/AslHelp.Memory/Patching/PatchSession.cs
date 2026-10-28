@@ -39,7 +39,7 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="memory"/> or <paramref name="writer"/> is <see langword="null"/>.
     /// </exception>
-    internal PatchSession(
+    public PatchSession(
         IMemoryReader memory,
         IPatchWriter writer,
         Logger? logger = null)

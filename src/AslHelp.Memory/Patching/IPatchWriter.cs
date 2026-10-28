@@ -9,10 +9,9 @@ namespace AslHelp.Memory.Patching;
 /// <remarks>
 ///     Changing page protection, writing bytes and stopping threads are separate calls on the target, so they are
 ///     separate members here. A reservation has to be within a relative jump of its anchor, so <see cref="Reserve"/>
-///     takes an anchor rather than any free page. Anything that provides these can stand in for the live writer,
-///     including a recording writer in a test.
+///     takes an anchor rather than any free page.
 /// </remarks>
-internal interface IPatchWriter
+public interface IPatchWriter
 {
     /// <summary>
     ///     Reserves memory the target may execute, close enough to <paramref name="anchor"/> that a relative jump
