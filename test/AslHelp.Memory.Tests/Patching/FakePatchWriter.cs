@@ -5,8 +5,8 @@ using System.Collections.Generic;
 
 namespace AslHelp.Memory.Tests.Patching;
 
-// Stands in for the live writer so the pool can be tested without a process. Every call records what it was asked
-// and hands back a canned result, so a test reads the fields to check what the pool did.
+// Stands in for the live writer so the pool and installs can be tested without a process. Every call records what
+// it was asked and hands back a canned result, so a test reads the fields to check what the pool or install did.
 internal sealed class FakePatchWriter : IPatchWriter
 {
     // Starts high enough that a reservation and its last slot stay well clear of 0, so a test that does not care
@@ -18,6 +18,25 @@ internal sealed class FakePatchWriter : IPatchWriter
     public ResultError? ProtectError { get; set; }
 
     public ResultError? ReleaseError { get; set; }
+
+    // Fails every write when FailWriteAt is null, otherwise only the write at that address.
+    public ResultError? WriteError { get; set; }
+
+    public Address? FailWriteAt { get; set; }
+
+    public ResultError? SuspendError { get; set; }
+
+    // Receives every write when set, so a test can read the jump and the restored prologue back.
+    public IMemoryWriter? Backing { get; set; }
+
+    // Returned by SuspendThreads in place of a NoOpSuspension, so a test can place threads and mark the suspension
+    // incomplete.
+    public IThreadSuspension? Suspension { get; set; }
+
+    // Runs inside SuspendThreads before it returns, so a test can change the target while its threads are stopped.
+    public Action? OnSuspend { get; set; }
+
+    public int Suspensions { get; private set; }
 
     public List<(Address Anchor, int Size)> Reserved { get; } = [];
 
@@ -61,6 +80,16 @@ internal sealed class FakePatchWriter : IPatchWriter
     {
         Written.Add((address, buffer.ToArray()));
 
+        if (WriteError is not null && (FailWriteAt is null || FailWriteAt == address))
+        {
+            return WriteError;
+        }
+
+        if (Backing is not null)
+        {
+            return Backing.Write(address, buffer);
+        }
+
         return Result.Ok();
     }
 
@@ -78,7 +107,16 @@ internal sealed class FakePatchWriter : IPatchWriter
 
     public Result<IThreadSuspension> SuspendThreads()
     {
-        return new NoOpSuspension();
+        Suspensions++;
+
+        if (SuspendError is not null)
+        {
+            return SuspendError;
+        }
+
+        OnSuspend?.Invoke();
+
+        return Result.Ok(Suspension ?? new NoOpSuspension());
     }
 
     private sealed record TestError(string Text) : ResultError

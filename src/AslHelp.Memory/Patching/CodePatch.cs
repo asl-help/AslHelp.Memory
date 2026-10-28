@@ -1,5 +1,6 @@
 using AslHelp.Memory.Patching.Errors;
 using System;
+using System.Buffers.Binary;
 
 namespace AslHelp.Memory.Patching;
 
@@ -366,6 +367,113 @@ public sealed class CodePatch
         return new PatchPlan(entry, original, layout, assembler);
     }
 
+    /// <summary>
+    ///     Places a planned patch: a slot out of <paramref name="pool"/>, the stub written into it, and the entry
+    ///     redirected there.
+    /// </summary>
+    /// <param name="memory">The target's memory.</param>
+    /// <param name="writer">The write access to the target.</param>
+    /// <param name="pool">The reservation this patch takes its slot and record from.</param>
+    /// <param name="plan">What was settled about the entry before a pool was asked for.</param>
+    /// <param name="attempted">
+    ///     The patch when the redirection failed after the target was handed the jump, which may then stand at the
+    ///     entry, otherwise <see langword="null"/>.
+    /// </param>
+    /// <returns>
+    ///     The patch on success, otherwise a failed result with what stopped it.
+    /// </returns>
+    internal static Result<CodePatch> Install(
+        IMemoryReader memory,
+        IPatchWriter writer,
+        PatchPool pool,
+        PatchPlan plan,
+        out CodePatch? attempted)
+    {
+        attempted = null;
+        var entry = plan.Entry;
+
+        if (!pool.CanReach(entry))
+        {
+            return InstallError.PoolOutOfReach(pool.Base, entry);
+        }
+
+        if (!pool.TryRent(out var record, out var slot))
+        {
+            return InstallError.PoolFull(pool.Base);
+        }
+
+        if (!Compose(entry, slot, record, plan.Original, plan.Layout, plan.Assembler)
+            .TryUnwrap(out byte[]? contents, out var composeError))
+        {
+            // Returns the slot, because nothing was written into it yet.
+            pool.Return(slot);
+
+            return composeError;
+        }
+
+        // Clears the record before the stub can reach it, because a returned slot's record may be left odd and an odd
+        // sequence makes every accepted read the half-written one. A fresh reservation arrives zeroed.
+        if (writer.WriteCode(record, new byte[CaptureLayout.RecordSize]).TryUnwrapErr(out var clearError))
+        {
+            return clearError;
+        }
+
+        // Keeps the slot spent on a failed write, because a failed write into the library's own pages is not
+        // transient. The reservation stays too, since other live patches stand in it.
+        if (writer.WriteCode(slot, contents).TryUnwrapErr(out var writeError))
+        {
+            return writeError;
+        }
+
+        if (Redirect(memory, writer, entry, slot, out bool offered).TryUnwrapErr(out var redirectError))
+        {
+            // Returns the slot when nothing reached the entry, since then nothing jumps to its code. A script reloads
+            // on every save. A slot kept each time would spend the pool on 1 method.
+            if (!offered)
+            {
+                pool.Return(slot);
+            }
+            else
+            {
+                attempted = new CodePatch(entry, slot, record, plan.Original, adopted: false, captures: !plan.Layout.IsEmpty);
+            }
+
+            return redirectError;
+        }
+
+        return new CodePatch(entry, slot, record, plan.Original, adopted: false, captures: !plan.Layout.IsEmpty);
+    }
+
+    /// <summary>
+    ///     Puts the 5 bytes the jump replaced back, leaving the method as it was found.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The page is not released here. A thread standing inside a freed stub is a crash, so the session releases
+    ///         the page after it has suspended every thread and checked where each one stands.
+    ///     </para>
+    ///     <para>
+    ///         Only the session calls this. It keeps the ledger of what stands in the target and suspends every thread
+    ///         once for the whole unload. A patch taken out from beside that leaves the ledger out of step with the
+    ///         target.
+    ///     </para>
+    /// </remarks>
+    /// <param name="memory">The target's memory.</param>
+    /// <param name="writer">The write access to the target.</param>
+    /// <returns>
+    ///     A successful result when the entry reads as it did before, otherwise a failed result.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="memory"/> or <paramref name="writer"/> is <see langword="null"/>.
+    /// </exception>
+    internal Result Restore(IMemoryReader memory, IPatchWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(memory);
+        ArgumentNullException.ThrowIfNull(writer);
+
+        return WriteWord(memory, writer, Entry, Original.AsSpan(0, JumpLength), out _);
+    }
+
     internal static Result<byte[]> Compose(
         Address entry,
         Address slot,
@@ -418,5 +526,85 @@ public sealed class CodePatch
         byte[] composed = [.. header, .. code.Written];
 
         return composed;
+    }
+
+    private static Result Redirect(
+        IMemoryReader memory,
+        IPatchWriter writer,
+        Address entry,
+        Address slot,
+        out bool offered)
+    {
+        offered = false;
+
+        long displacement = slot + StubAt - (entry + JumpLength);
+
+        if (displacement is > int.MaxValue or < int.MinValue)
+        {
+            return InstallError.StubOutOfReach(entry);
+        }
+
+        Span<byte> jump = stackalloc byte[JumpLength];
+        jump[0] = 0xE9;
+        BinaryPrimitives.WriteInt32LittleEndian(jump[1..], (int)displacement);
+
+        return WriteWord(memory, writer, entry, jump, out offered);
+    }
+
+    // Splices the bytes into the aligned word around them and writes the word back whole, so a thread sees either the
+    // old instruction or the jump.
+    private static Result WriteWord(
+        IMemoryReader memory,
+        IPatchWriter writer,
+        Address entry,
+        ReadOnlySpan<byte> patch,
+        out bool offered)
+    {
+        offered = false;
+
+        Address aligned = new(entry.Value & ~7UL);
+        int at = (int)(entry - aligned);
+
+        // Refuses bytes that run past the word, because an adopted page never went through the plan's check and 1
+        // store can't put them back.
+        if (at + patch.Length > 8)
+        {
+            return PlanError.StraddlesAWord(entry);
+        }
+
+        if (!writer.SuspendThreads().TryUnwrap(out var suspension, out var suspendError))
+        {
+            return suspendError;
+        }
+
+        using (suspension)
+        {
+            if (suspension.AnyIn(new MemoryRange(entry, (ulong)patch.Length)))
+            {
+                return InstallError.ThreadInside(entry);
+            }
+
+            // Checks completeness after the positions, so a thread found inside is reported ahead of a missed one.
+            if (!suspension.IsComplete)
+            {
+                return InstallError.ThreadsNotSuspended(entry);
+            }
+
+            // Reads the aligned word inside the suspension, so the bytes around the patch go back as they are now and
+            // not as a stale copy read before the threads stopped.
+            Span<byte> word = stackalloc byte[8];
+            if (memory.Read(aligned, word).TryUnwrapErr(out var readError))
+            {
+                return readError;
+            }
+
+            patch.CopyTo(word[at..]);
+
+            // Sets `offered` before the write, because a failed write may still have reached the target and treating
+            // that as untouched would be wrong.
+            offered = true;
+
+            return writer.WriteCode(aligned, word);
+        }
     }
 }

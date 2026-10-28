@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `CaptureLayout`, `CaptureItem` and `CaptureSource` in `AslHelp.Memory.Patching` for the arguments a patched entry copies out of each call.
 - `CodePatch.Adopt`, `ReadCount` and `TryReadCall` for finding a patch at an entry and reading how often it ran and what the last call passed.
 - `IPatchInstaller` in `AslHelp.Memory.Patching` for what redirects an entry into a stub and keeps the target still while several watchers ask at once.
+- `CodePatch.Install` for writing a planned patch's stub into a `PatchPool` slot and redirecting the entry with 1 aligned 8-byte write while the target's threads are suspended, with `Restore` for putting the displaced bytes back the same way.
 
 ## [0.1.0-alpha.1] - 2026-10-25
 
