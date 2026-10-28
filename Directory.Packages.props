@@ -36,6 +36,7 @@
       M:System.ArgumentOutOfRangeException.ThrowIfNegative``1(;
       M:System.Collections.Generic.Dictionary`2.TryAdd(`0,`1);
       M:System.ObjectDisposedException.ThrowIf(System.Boolean,System.Object);
+      M:System.String.Contains(System.String,System.StringComparison);
       M:System.Text.Encoding.GetString(System.ReadOnlySpan{System.Byte});
       T:System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute;
       T:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute;
