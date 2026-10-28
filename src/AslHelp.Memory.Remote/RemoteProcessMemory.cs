@@ -48,6 +48,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         ArgumentNullException.ThrowIfNull(process);
 
         int id = process.Id;
+        ProcessId = (uint)id;
 
         _handle = PInvoke.OpenProcess_SafeHandle(Access, false, (uint)id);
         if (_handle.IsInvalid)
@@ -74,6 +75,11 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
     /// <inheritdoc/>
     public MemoryLayout Layout { get; }
+
+    /// <summary>
+    ///     Gets the id of the process.
+    /// </summary>
+    internal uint ProcessId { get; }
 
     /// <inheritdoc/>
     /// <exception cref="ObjectDisposedException">

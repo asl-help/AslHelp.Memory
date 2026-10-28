@@ -109,6 +109,20 @@ The first read only fills the values, so `Changed` can only be `true` from the s
 
 When a read fails, `FailAction` picks what happens. `Clear` resets the values, so the next good read only fills them again. `KeepOld` keeps them and `Throw` throws with the error from the read.
 
+### Patching
+
+A `PatchSession` redirects a function's entry into a stub that counts each call. `RemotePatchWriter` writes the patches into a running Windows process:
+
+```cs
+using var writer = new RemotePatchWriter(memory);
+using var session = new PatchSession(memory, writer);
+
+var patch = session.Install(entry).Unwrap();
+var calls = patch.ReadCount(memory);
+```
+
+Disposing the session puts every entry back.
+
 ## Contributing
 
 You need the .NET SDK version from `global.json`. These are the commands CI runs:
