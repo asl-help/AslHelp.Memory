@@ -102,16 +102,30 @@ public class LocatorRouteTests
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x17 + 0x20));
     }
 
-    // A branch read adds the signed distance to the end of the instruction.
+    // A global read at a pointer size of 4 returns the operand as the absolute address.
     [Test]
-    public void Locate_BranchRead_FollowsTheDistance()
+    public void Locate_GlobalReadOn32Bit_ReturnsTheAbsoluteOperand()
+    {
+        byte[] bytes = new byte[0x40];
+        bytes[0x10] = 0xA1;
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0x11), 0x401000);
+        BufferMemory memory = new(_base, bytes, MemoryLayout.X86);
+
+        LocatorRoute route = new("release", new SearchStep(Scan.Create("A1"), 1), new ReadStep(ReadKind.Global));
+
+        Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(new Address(0x401000)));
+    }
+
+    // A displacement read adds the signed distance to the end of the instruction.
+    [Test]
+    public void Locate_DisplacementRead_FollowsTheDistance()
     {
         byte[] bytes = new byte[0x40];
         bytes[0x20] = 0xE8;
         BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(0x21), -0x15);
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        LocatorRoute route = new("release", new SearchStep(Scan.Create("E8"), 1), new ReadStep(ReadKind.Branch));
+        LocatorRoute route = new("release", new SearchStep(Scan.Create("E8"), 1), new ReadStep(ReadKind.Displacement));
 
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x10));
     }

@@ -27,7 +27,7 @@ public abstract record RouteStep(
     };
 
     /// <summary>
-    ///     Runs the step on each of <paramref name="from"/> and adds the addresses it reaches to <paramref name="to"/>.
+    ///     Executes the step on each of <paramref name="from"/> and adds the addresses it reaches to <paramref name="to"/>.
     /// </summary>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="module">The module the route starts at.</param>
@@ -36,15 +36,15 @@ public abstract record RouteStep(
     /// <returns>
     ///     A successful result when the step reached at least 1 address, otherwise the last failure.
     /// </returns>
-    internal virtual Result Run(IMemoryReader reader, MemoryModule module, List<Address> from, List<Address> to)
+    internal virtual Result Execute(IMemoryReader reader, MemoryModule module, List<Address> from, List<Address> to)
     {
         ResultError? failure = null;
 
         foreach (var address in from)
         {
-            if (Next(reader, module, address).TryUnwrap(out var next, out var error))
+            if (Resolve(reader, module, address).TryUnwrap(out var resolved, out var error))
             {
-                to.Add(next + Offset);
+                to.Add(resolved + Offset);
             }
             else
             {
@@ -56,7 +56,7 @@ public abstract record RouteStep(
     }
 
     /// <summary>
-    ///     Turns 1 address into the next one, before the offset is added.
+    ///     Resolves 1 address into the next one, before the offset is added.
     /// </summary>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="module">The module the route starts at.</param>
@@ -64,5 +64,5 @@ public abstract record RouteStep(
     /// <returns>
     ///     The next address on success, otherwise a failed result.
     /// </returns>
-    private protected abstract Result<Address> Next(IMemoryReader reader, MemoryModule module, Address from);
+    private protected abstract Result<Address> Resolve(IMemoryReader reader, MemoryModule module, Address from);
 }

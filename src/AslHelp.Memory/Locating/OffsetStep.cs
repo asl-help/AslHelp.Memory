@@ -18,7 +18,7 @@ public sealed record OffsetStep(
         return Offset < 0 ? $"offset -0x{-(long)Offset:X}" : $"offset 0x{Offset:X}";
     }
 
-    private protected override Result<Address> Next(IMemoryReader reader, MemoryModule module, Address from)
+    private protected override Result<Address> Resolve(IMemoryReader reader, MemoryModule module, Address from)
     {
         return from;
     }

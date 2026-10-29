@@ -64,7 +64,7 @@ public sealed class LocatorRoute
     public IReadOnlyList<RouteStep> Steps => _steps;
 
     /// <summary>
-    ///     Runs the steps from the base of <paramref name="module"/>.
+    ///     Executes the steps from the base of <paramref name="module"/>.
     /// </summary>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="module">The module the route starts at.</param>
@@ -86,10 +86,10 @@ public sealed class LocatorRoute
         {
             next.Clear();
 
-            var run = _steps[i].Run(reader, module, reached, next);
-            if (run.IsErr)
+            var executed = _steps[i].Execute(reader, module, reached, next);
+            if (executed.IsErr)
             {
-                return LocatorError.StepFailed(i + 1, _steps[i], run.Error);
+                return LocatorError.StepFailed(i + 1, _steps[i], executed.Error);
             }
 
             (reached, next) = (next, reached);

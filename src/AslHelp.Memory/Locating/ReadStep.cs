@@ -8,8 +8,9 @@ namespace AslHelp.Memory.Locating;
 /// </summary>
 /// <param name="Kind">How the bytes encode the next address.</param>
 /// <param name="Size">
-///     The number of bytes from the operand to the end of its instruction, which a <see cref="ReadKind.Global"/> or
-///     <see cref="ReadKind.Branch"/> displacement counts from. A <see cref="ReadKind.Pointer"/> read ignores it.
+///     The number of bytes from the operand to the end of its instruction, which a <see cref="ReadKind.Displacement"/>
+///     read and a <see cref="ReadKind.Global"/> read at a pointer size of 8 count from. A
+///     <see cref="ReadKind.Pointer"/> read and a <see cref="ReadKind.Global"/> read at a pointer size of 4 ignore it.
 /// </param>
 /// <param name="Offset">The number of bytes to add to the address that was read.</param>
 public sealed record ReadStep(
@@ -20,9 +21,9 @@ public sealed record ReadStep(
     /// <summary>
     ///     Gets how the bytes encode the next address.
     /// </summary>
-    public ReadKind Kind { get; } = Kind is ReadKind.Global or ReadKind.Branch or ReadKind.Pointer
+    public ReadKind Kind { get; } = Kind is ReadKind.Global or ReadKind.Displacement or ReadKind.Pointer
         ? Kind
-        : throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "A read is a global, a branch or a pointer.");
+        : throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "A read is a global, a displacement or a pointer.");
 
     /// <summary>
     ///     Formats the step as in <c>read global plus 0x8</c>.
@@ -32,15 +33,15 @@ public sealed record ReadStep(
     /// </returns>
     public override string ToString()
     {
-        return $"read {RouteStepConverter.NameOf(Kind)}{OffsetSuffix}";
+        return $"read {RouteStepConverter.GetName(Kind)}{OffsetSuffix}";
     }
 
-    private protected override Result<Address> Next(IMemoryReader reader, MemoryModule module, Address from)
+    private protected override Result<Address> Resolve(IMemoryReader reader, MemoryModule module, Address from)
     {
         return Kind switch
         {
             ReadKind.Global => AddressResolver.FromRelative(0, Size)(reader, from),
-            ReadKind.Branch => AddressResolver.FromDisplacement(0, Size)(reader, from),
+            ReadKind.Displacement => AddressResolver.FromDisplacement(0, Size)(reader, from),
             _ => reader.ReadPointer(from),
         };
     }

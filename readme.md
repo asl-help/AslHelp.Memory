@@ -75,7 +75,7 @@ var locator = JsonSerializer.Deserialize<MemoryLocator>(json, options);
 var sceneManager = locator.Locate(memory, module);
 ```
 
-`Routes["name"]` runs only 1 route. `GlobalSlot` locates a slot once and reads the pointer in it on each access.
+`Routes["name"]` runs only 1 route. `GlobalPointer` locates a global once and reads the pointer in it on each access.
 
 ### Watching a value
 

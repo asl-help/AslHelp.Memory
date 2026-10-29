@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - **Breaking:** `AddressResolver.Relative` is now `AddressResolver.FromRelative`.
 - **Breaking:** `AddressResolver.Displacement` is now `AddressResolver.FromDisplacement`.
 - **Breaking:** `AddressResolver.Offset` is now `AddressResolver.FromOffset`.
+- **Breaking:** `GlobalSlot` is now `GlobalPointer`.
+- **Breaking:** `ReadKind.Branch` is now `Displacement`.
+- **Breaking:** A `branch` read in a route document is now `displacement`.
+- **Breaking:** `SearchStep.Search` is now `Scan`.
 
 ## [0.1.0-alpha.1] - 2026-10-25
 

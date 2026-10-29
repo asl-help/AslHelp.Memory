@@ -105,12 +105,12 @@ public class LocatorJsonTests
         MemoryLocator locator = new(new LocatorRoute(
             "release",
             new SearchStep(ScanWindow.Backward(0x40).Create("48 8b ?5"), -2),
-            new ReadStep(ReadKind.Branch, Size: 5),
+            new ReadStep(ReadKind.Displacement, Size: 5),
             new ReadStep(ReadKind.Global)));
 
         Assert.That(
             JsonSerializer.Serialize(locator),
-            Is.EqualTo("""{"release":[{"backward":"48 8B ?5","within":"0x40","offset":-2},{"read":"branch","size":"0x5"},{"read":"global"}]}"""));
+            Is.EqualTo("""{"release":[{"backward":"48 8B ?5","within":"0x40","offset":-2},{"read":"displacement","size":"0x5"},{"read":"global"}]}"""));
     }
 
     // A decimal number reads the same as hex.
@@ -136,8 +136,9 @@ public class LocatorJsonTests
     [TestCase("""{ "a": "48" }""", "array of steps")]
     [TestCase("""{ "a": [ { "export": "x", "read": "pointer" } ] }""", "2 steps")]
     [TestCase("""{ "a": [ { "within": "0x40" } ] }""", "needs 1 key")]
-    [TestCase("""{ "a": [ { "read": "pointer", "size": 8 } ] }""", "Only 'global' and 'branch'")]
-    [TestCase("""{ "a": [ { "read": "absolute" } ] }""", "global, branch or pointer")]
+    [TestCase("""{ "a": [ { "read": "pointer", "size": 8 } ] }""", "Only 'global' and 'displacement'")]
+    [TestCase("""{ "a": [ { "read": "absolute" } ] }""", "global, displacement or pointer")]
+    [TestCase("""{ "a": [ { "read": "branch" } ] }""", "global, displacement or pointer")]
     [TestCase("""{ "a": [ { "forward": "48 8B 0", "within": 64 } ] }""", "isn't a signature")]
     [TestCase("""{ "a": [ { "forward": [], "within": 64 } ] }""", "empty array")]
     [TestCase("""{ "a": [ { "forward": "48", "within": 0 } ] }""", "positive size")]

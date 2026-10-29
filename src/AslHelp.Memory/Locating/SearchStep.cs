@@ -12,13 +12,13 @@ namespace AslHelp.Memory.Locating;
 /// <remarks>
 ///     A <see cref="ScanWindow.Forward(int)"/> window takes its first match and a
 ///     <see cref="ScanWindow.Backward(int)"/> window takes its last, so both take the match nearest to the previous
-///     address. A <see cref="Scan.Create(string)"/> search goes through the whole module and keeps every match. The
-///     route then fails unless they all lead to the same address.
+///     address. A <see cref="Scan.Create(string)"/> search goes through the whole module and keeps every
+///     match. The route then fails unless they all lead to the same address.
 /// </remarks>
-/// <param name="Search">The scan step to run, made with <see cref="Scan"/>, without a resolver.</param>
+/// <param name="Scan">The scan step to run, made with <see cref="Scanning.Scan"/>, without a resolver.</param>
 /// <param name="Offset">The number of bytes from a match to the address the step returns.</param>
 public sealed record SearchStep(
-    ScanStep Search,
+    ScanStep Scan,
     int Offset = 0) : RouteStep(Offset)
 {
     // A window may reach past the module, so it's only clamped to the whole address space.
@@ -27,12 +27,12 @@ public sealed record SearchStep(
     /// <summary>
     ///     Gets the scan step to run.
     /// </summary>
-    public ScanStep Search { get; } = Validate(Search);
+    public ScanStep Scan { get; } = Validate(Scan);
 
     /// <summary>
     ///     Gets a value indicating whether the step searches the whole module.
     /// </summary>
-    public bool IsWholeModule => Search.Kind == ScanStepKind.Range;
+    public bool IsWholeModule => Scan.Kind == ScanStepKind.Range;
 
     /// <summary>
     ///     Formats the step as in <c>forward 0x100 for '48 8B 0D' plus 0x3</c>.
@@ -42,22 +42,22 @@ public sealed record SearchStep(
     /// </returns>
     public override string ToString()
     {
-        return Search.Kind switch
+        return Scan.Kind switch
         {
-            ScanStepKind.Forward => $"forward 0x{Search.WindowSize:X} for '{Search.Pattern}'{OffsetSuffix}",
-            ScanStepKind.Backward => $"backward 0x{Search.WindowSize:X} for '{Search.Pattern}'{OffsetSuffix}",
-            _ => $"search the module for '{Search.Pattern}'{OffsetSuffix}",
+            ScanStepKind.Forward => $"forward 0x{Scan.WindowSize:X} for '{Scan.Pattern}'{OffsetSuffix}",
+            ScanStepKind.Backward => $"backward 0x{Scan.WindowSize:X} for '{Scan.Pattern}'{OffsetSuffix}",
+            _ => $"search the module for '{Scan.Pattern}'{OffsetSuffix}",
         };
     }
 
-    internal override Result Run(IMemoryReader reader, MemoryModule module, List<Address> from, List<Address> to)
+    internal override Result Execute(IMemoryReader reader, MemoryModule module, List<Address> from, List<Address> to)
     {
         if (!IsWholeModule)
         {
-            return base.Run(reader, module, from, to);
+            return base.Execute(reader, module, from, to);
         }
 
-        foreach (var match in Scan.ScanFrom(reader, module.Range, Search, module.Range.Start))
+        foreach (var match in Scanning.Scan.ScanFrom(reader, module.Range, Scan, module.Range.Start))
         {
             to.Add(match + Offset);
         }
@@ -65,17 +65,17 @@ public sealed record SearchStep(
         return to.Count > 0 ? Result.Ok() : LocatorError.NotFoundInModule(this, module);
     }
 
-    private protected override Result<Address> Next(IMemoryReader reader, MemoryModule module, Address from)
+    private protected override Result<Address> Resolve(IMemoryReader reader, MemoryModule module, Address from)
     {
         bool found = false;
         var nearest = Address.Zero;
 
-        foreach (var match in Scan.ScanFrom(reader, _addressSpace, Search, from))
+        foreach (var match in Scanning.Scan.ScanFrom(reader, _addressSpace, Scan, from))
         {
             found = true;
             nearest = match;
 
-            if (Search.Kind == ScanStepKind.Forward)
+            if (Scan.Kind == ScanStepKind.Forward)
             {
                 break;
             }
@@ -84,22 +84,22 @@ public sealed record SearchStep(
         return found ? nearest : LocatorError.NotFoundNear(this, from);
     }
 
-    private static ScanStep Validate(ScanStep search)
+    private static ScanStep Validate(ScanStep scan)
     {
-        if (search.Pattern.Length == 0)
+        if (scan.Pattern.Length == 0)
         {
             throw new ArgumentException(
                 "The scan step has no pattern. Make it with Scan.Create or with Create on a ScanWindow.Forward or ScanWindow.Backward window.",
-                nameof(search));
+                nameof(scan));
         }
 
-        if (search.Resolver is not null)
+        if (scan.Resolver is not null)
         {
             throw new ArgumentException(
                 "The scan step of a search step can't have a resolver. Add a read step after it instead.",
-                nameof(search));
+                nameof(scan));
         }
 
-        return search;
+        return scan;
     }
 }

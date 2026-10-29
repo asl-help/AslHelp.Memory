@@ -28,12 +28,12 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
     /// <returns>
     ///     The word.
     /// </returns>
-    public static string NameOf(ReadKind kind)
+    public static string GetName(ReadKind kind)
     {
         return kind switch
         {
             ReadKind.Global => "global",
-            ReadKind.Branch => "branch",
+            ReadKind.Displacement => "displacement",
             _ => "pointer",
         };
     }
@@ -61,13 +61,13 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
             {
                 case "export" or "read":
                 {
-                    kind = SetKind(kind, key);
+                    kind = SetKindOnce(kind, key);
                     value = ReadText(ref reader, key);
                     break;
                 }
                 case "forward" or "backward":
                 {
-                    kind = SetKind(kind, key);
+                    kind = SetKindOnce(kind, key);
                     value = ReadSignature(ref reader, key);
                     break;
                 }
@@ -95,8 +95,8 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
 
         kind ??= offset is not null ? "offset" : throw new JsonException($"A step needs 1 key that names what it does. Use {Kinds}.");
 
-        Disallow(kind, "within", within is not null && kind is not ("forward" or "backward"));
-        Disallow(kind, "size", size is not null && kind is not "read");
+        ThrowIfPresent(kind, "within", within is not null && kind is not ("forward" or "backward"));
+        ThrowIfPresent(kind, "size", size is not null && kind is not "read");
 
         return kind switch
         {
@@ -124,17 +124,17 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
             }
             case SearchStep search:
             {
-                writer.WriteString(search.Search.Kind == ScanStepKind.Backward ? "backward" : "forward", search.Search.Pattern.ToString());
+                writer.WriteString(search.Scan.Kind == ScanStepKind.Backward ? "backward" : "forward", search.Scan.Pattern.ToString());
                 if (!search.IsWholeModule)
                 {
-                    WriteNumber(writer, "within", search.Search.WindowSize);
+                    WriteNumber(writer, "within", search.Scan.WindowSize);
                 }
 
                 break;
             }
             case ReadStep read:
             {
-                writer.WriteString("read", NameOf(read.Kind));
+                writer.WriteString("read", GetName(read.Kind));
                 if (read.Kind != ReadKind.Pointer && read.Size != DefaultSize)
                 {
                     WriteNumber(writer, "size", read.Size);
@@ -156,14 +156,14 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
         writer.WriteEndObject();
     }
 
-    private static string SetKind(string? kind, string key)
+    private static string SetKindOnce(string? kind, string key)
     {
         return kind is null
             ? key
             : throw new JsonException($"A step does 1 thing, but this one is both '{kind}' and '{key}'. Write them as 2 steps.");
     }
 
-    private static void Disallow(string kind, string key, bool present)
+    private static void ThrowIfPresent(string kind, string key, bool present)
     {
         if (present)
         {
@@ -196,14 +196,14 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
         var kind = value switch
         {
             "global" => ReadKind.Global,
-            "branch" => ReadKind.Branch,
+            "displacement" => ReadKind.Displacement,
             "pointer" => ReadKind.Pointer,
-            _ => throw new JsonException($"'{value}' isn't a read. Use global, branch or pointer."),
+            _ => throw new JsonException($"'{value}' isn't a read. Use global, displacement or pointer."),
         };
 
         if (kind == ReadKind.Pointer && size is not null)
         {
-            throw new JsonException("A 'pointer' read uses the target's pointer size, so it doesn't take 'size'. Only 'global' and 'branch' do.");
+            throw new JsonException("A 'pointer' read uses the target's pointer size, so it doesn't take 'size'. Only 'global' and 'displacement' do.");
         }
 
         return kind;

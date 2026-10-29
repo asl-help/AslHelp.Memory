@@ -62,8 +62,8 @@ internal sealed record LocatorError : ResultError
     /// </returns>
     public static LocatorError NotFoundNear(SearchStep step, Address anchor)
     {
-        string side = step.Search.Kind == Scanning.ScanStepKind.Backward ? "before" : "from";
-        return new($"'{step.Search.Pattern}' isn't in the {step.Search.WindowSize} bytes {side} {anchor}.");
+        string side = step.Scan.Kind == Scanning.ScanStepKind.Backward ? "before" : "from";
+        return new($"'{step.Scan.Pattern}' isn't in the {step.Scan.WindowSize} bytes {side} {anchor}.");
     }
 
     /// <summary>
@@ -76,6 +76,6 @@ internal sealed record LocatorError : ResultError
     /// </returns>
     public static LocatorError NotFoundInModule(SearchStep step, MemoryModule module)
     {
-        return new($"'{step.Search.Pattern}' isn't in '{module.Name}'.");
+        return new($"'{step.Scan.Pattern}' isn't in '{module.Name}'.");
     }
 }
