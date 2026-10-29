@@ -10,10 +10,10 @@ namespace AslHelp.Memory.Locating;
 ///     whole module.
 /// </summary>
 /// <remarks>
-///     A <see cref="Scan.Forward(int)"/> window takes its first match and a <see cref="Scan.Backward(int)"/> window
-///     takes its last, so both take the match nearest to the previous address. A <see cref="Scan.For(string)"/>
-///     search goes through the whole module and keeps every match. The route then fails unless they all lead to the
-///     same address.
+///     A <see cref="ScanWindow.Forward(int)"/> window takes its first match and a
+///     <see cref="ScanWindow.Backward(int)"/> window takes its last, so both take the match nearest to the previous
+///     address. A <see cref="Scan.Create(string)"/> search goes through the whole module and keeps every match. The
+///     route then fails unless they all lead to the same address.
 /// </remarks>
 /// <param name="Search">The scan step to run, made with <see cref="Scan"/>, without a resolver.</param>
 /// <param name="Offset">The number of bytes from a match to the address the step returns.</param>
@@ -44,8 +44,8 @@ public sealed record SearchStep(
     {
         return Search.Kind switch
         {
-            ScanStepKind.Forward => $"forward 0x{Search.Window:X} for '{Search.Pattern}'{OffsetSuffix}",
-            ScanStepKind.Backward => $"backward 0x{Search.Window:X} for '{Search.Pattern}'{OffsetSuffix}",
+            ScanStepKind.Forward => $"forward 0x{Search.WindowSize:X} for '{Search.Pattern}'{OffsetSuffix}",
+            ScanStepKind.Backward => $"backward 0x{Search.WindowSize:X} for '{Search.Pattern}'{OffsetSuffix}",
             _ => $"search the module for '{Search.Pattern}'{OffsetSuffix}",
         };
     }
@@ -57,7 +57,7 @@ public sealed record SearchStep(
             return base.Run(reader, module, from, to);
         }
 
-        foreach (var match in Scan.From(reader, module.Range, Search, module.Range.Start))
+        foreach (var match in Scan.ScanFrom(reader, module.Range, Search, module.Range.Start))
         {
             to.Add(match + Offset);
         }
@@ -70,7 +70,7 @@ public sealed record SearchStep(
         bool found = false;
         var nearest = Address.Zero;
 
-        foreach (var match in Scan.From(reader, _addressSpace, Search, from))
+        foreach (var match in Scan.ScanFrom(reader, _addressSpace, Search, from))
         {
             found = true;
             nearest = match;
@@ -89,7 +89,7 @@ public sealed record SearchStep(
         if (search.Pattern.Length == 0)
         {
             throw new ArgumentException(
-                "The scan step has no pattern. Make it with Scan.For, Scan.Forward or Scan.Backward.",
+                "The scan step has no pattern. Make it with Scan.Create or with Create on a ScanWindow.Forward or ScanWindow.Backward window.",
                 nameof(search));
         }
 

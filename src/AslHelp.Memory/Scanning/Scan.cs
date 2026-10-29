@@ -31,9 +31,9 @@ public static class Scan
     /// <exception cref="FormatException">
     ///     <paramref name="signature"/> isn't a pattern.
     /// </exception>
-    public static ScanStep For(string signature)
+    public static ScanStep Create(string signature)
     {
-        return For(ScanPattern.Parse(signature));
+        return Create(ScanPattern.Parse(signature));
     }
 
     /// <summary>
@@ -43,43 +43,9 @@ public static class Scan
     /// <returns>
     ///     The step.
     /// </returns>
-    public static ScanStep For(ScanPattern pattern)
+    public static ScanStep Create(ScanPattern pattern)
     {
         return new(pattern, ScanStepKind.Range, 0, null);
-    }
-
-    /// <summary>
-    ///     Creates a window of <paramref name="size"/> bytes that starts at the previous step's match.
-    /// </summary>
-    /// <param name="size">The number of bytes to search.</param>
-    /// <returns>
-    ///     The window, which <see cref="ScanWindow.For(string)"/> turns into a step.
-    /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    ///     <paramref name="size"/> is negative.
-    /// </exception>
-    public static ScanWindow Forward(int size)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(size);
-
-        return new(ScanStepKind.Forward, size);
-    }
-
-    /// <summary>
-    ///     Creates a window of <paramref name="size"/> bytes that ends at the previous step's match.
-    /// </summary>
-    /// <param name="size">The number of bytes to search.</param>
-    /// <returns>
-    ///     The window, which <see cref="ScanWindow.For(string)"/> turns into a step.
-    /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    ///     <paramref name="size"/> is negative.
-    /// </exception>
-    public static ScanWindow Backward(int size)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(size);
-
-        return new(ScanStepKind.Backward, size);
     }
 
     /// <summary>
@@ -94,11 +60,11 @@ public static class Scan
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="reader"/> is <see langword="null"/>.
     /// </exception>
-    public static IEnumerable<Address> Range(IMemoryReader reader, MemoryRange range, ScanPattern pattern)
+    public static IEnumerable<Address> ScanRange(IMemoryReader reader, MemoryRange range, ScanPattern pattern)
     {
         ArgumentNullException.ThrowIfNull(reader);
 
-        return Chunked(reader, range, pattern);
+        return ScanChunks(reader, range, pattern);
     }
 
     /// <summary>
@@ -113,7 +79,7 @@ public static class Scan
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="reader"/> or <paramref name="ranges"/> is <see langword="null"/>.
     /// </exception>
-    public static IEnumerable<Address> Ranges(IMemoryReader reader, IEnumerable<MemoryRange> ranges, ScanPattern pattern)
+    public static IEnumerable<Address> ScanRanges(IMemoryReader reader, IEnumerable<MemoryRange> ranges, ScanPattern pattern)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(ranges);
@@ -137,7 +103,7 @@ public static class Scan
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="reader"/> is <see langword="null"/>.
     /// </exception>
-    public static Result<IEnumerable<Address>> Regions<TReader>(TReader reader, ScanPattern pattern)
+    public static Result<IEnumerable<Address>> ScanRegions<TReader>(TReader reader, ScanPattern pattern)
         where TReader : IMemoryReader, IMemoryRegionProvider
     {
         ArgumentNullException.ThrowIfNull(reader);
@@ -164,16 +130,16 @@ public static class Scan
     /// <exception cref="ArgumentException">
     ///     <paramref name="steps"/> is empty.
     /// </exception>
-    public static IEnumerable<Address> Range(IMemoryReader reader, MemoryRange range, params ScanStep[] steps)
+    public static IEnumerable<Address> ScanRange(IMemoryReader reader, MemoryRange range, params ScanStep[] steps)
     {
-        return Ranges(reader, [range], steps);
+        return ScanRanges(reader, [range], steps);
     }
 
     /// <summary>
     ///     Runs <paramref name="steps"/> over each of <paramref name="ranges"/> in turn.
     /// </summary>
     /// <remarks>
-    ///     Each range is a chain of its own, as <see cref="Range(IMemoryReader, MemoryRange, ScanStep[])"/> runs it.
+    ///     Each range is a chain of its own, as <see cref="ScanRange(IMemoryReader, MemoryRange, ScanStep[])"/> runs it.
     /// </remarks>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="ranges">The ranges to search.</param>
@@ -187,7 +153,7 @@ public static class Scan
     /// <exception cref="ArgumentException">
     ///     <paramref name="steps"/> is empty.
     /// </exception>
-    public static IEnumerable<Address> Ranges(IMemoryReader reader, IEnumerable<MemoryRange> ranges, params ScanStep[] steps)
+    public static IEnumerable<Address> ScanRanges(IMemoryReader reader, IEnumerable<MemoryRange> ranges, params ScanStep[] steps)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(ranges);
@@ -220,7 +186,7 @@ public static class Scan
     /// <exception cref="ArgumentException">
     ///     <paramref name="steps"/> is empty.
     /// </exception>
-    public static Result<IEnumerable<Address>> Regions<TReader>(TReader reader, params ScanStep[] steps)
+    public static Result<IEnumerable<Address>> ScanRegions<TReader>(TReader reader, params ScanStep[] steps)
         where TReader : IMemoryReader, IMemoryRegionProvider
     {
         ArgumentNullException.ThrowIfNull(reader);
@@ -231,7 +197,7 @@ public static class Scan
             return ranges.Error;
         }
 
-        return Result.Ok(Ranges(reader, ranges.Unwrap(), steps));
+        return Result.Ok(ScanRanges(reader, ranges.Unwrap(), steps));
     }
 
     /// <summary>
@@ -244,9 +210,9 @@ public static class Scan
     /// <returns>
     ///     The addresses the step returns.
     /// </returns>
-    internal static IEnumerable<Address> From(IMemoryReader reader, MemoryRange range, ScanStep step, Address anchor)
+    internal static IEnumerable<Address> ScanFrom(IMemoryReader reader, MemoryRange range, ScanStep step, Address anchor)
     {
-        return Fold(reader, range, [step], 0, anchor);
+        return ScanChain(reader, range, [step], 0, anchor);
     }
 
     private static Result<IEnumerable<MemoryRange>> ReadableRanges<TReader>(TReader reader)
@@ -265,7 +231,7 @@ public static class Scan
     {
         foreach (var range in ranges)
         {
-            foreach (var match in Chunked(reader, range, pattern))
+            foreach (var match in ScanChunks(reader, range, pattern))
             {
                 yield return match;
             }
@@ -276,22 +242,22 @@ public static class Scan
     {
         foreach (var range in ranges)
         {
-            foreach (var match in Fold(reader, range, steps, 0, range.Start))
+            foreach (var match in ScanChain(reader, range, steps, 0, range.Start))
             {
                 yield return match;
             }
         }
     }
 
-    private static IEnumerable<Address> Fold(IMemoryReader reader, MemoryRange range, ScanStep[] steps, int index, Address anchor)
+    private static IEnumerable<Address> ScanChain(IMemoryReader reader, MemoryRange range, ScanStep[] steps, int index, Address anchor)
     {
         var step = steps[index];
         bool isLast = index == steps.Length - 1;
 
-        var scope = step.Scope(range, anchor);
+        var window = step.Clamp(range, anchor);
         var matches = step.Kind == ScanStepKind.Range
-            ? Chunked(reader, scope, step.Pattern)
-            : Windowed(reader, scope, step.Pattern);
+            ? ScanChunks(reader, window, step.Pattern)
+            : ScanInOneRead(reader, window, step.Pattern);
 
         foreach (var match in matches)
         {
@@ -312,7 +278,7 @@ public static class Scan
                 continue;
             }
 
-            foreach (var next in Fold(reader, range, steps, index + 1, address))
+            foreach (var next in ScanChain(reader, range, steps, index + 1, address))
             {
                 yield return next;
             }
@@ -320,7 +286,7 @@ public static class Scan
     }
 
     // A remote read is a syscall, so the window is read once into 1 rented array that lives across the yields.
-    private static IEnumerable<Address> Windowed(IMemoryReader reader, MemoryRange window, ScanPattern pattern)
+    private static IEnumerable<Address> ScanInOneRead(IMemoryReader reader, MemoryRange window, ScanPattern pattern)
     {
         int size = (int)window.Size;
         if (size < pattern.Length || pattern.Length == 0)
@@ -356,7 +322,7 @@ public static class Scan
         }
     }
 
-    private static IEnumerable<Address> Chunked(IMemoryReader reader, MemoryRange range, ScanPattern pattern)
+    private static IEnumerable<Address> ScanChunks(IMemoryReader reader, MemoryRange range, ScanPattern pattern)
     {
         int length = pattern.Length;
         if (length == 0 || range.Size < (ulong)length)

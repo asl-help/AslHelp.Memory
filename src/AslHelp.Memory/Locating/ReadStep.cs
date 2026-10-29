@@ -39,8 +39,8 @@ public sealed record ReadStep(
     {
         return Kind switch
         {
-            ReadKind.Global => AddressResolver.Relative(0, Size)(reader, from),
-            ReadKind.Branch => AddressResolver.Displacement(0, Size)(reader, from),
+            ReadKind.Global => AddressResolver.FromRelative(0, Size)(reader, from),
+            ReadKind.Branch => AddressResolver.FromDisplacement(0, Size)(reader, from),
             _ => reader.ReadPointer(from),
         };
     }

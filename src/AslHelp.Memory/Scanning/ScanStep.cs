@@ -7,16 +7,16 @@ namespace AslHelp.Memory.Scanning;
 ///     match and an optional resolver for each match.
 /// </summary>
 /// <remarks>
-///     Create one with <see cref="Scan.For(string)"/>, <see cref="Scan.Forward(int)"/> or
-///     <see cref="Scan.Backward(int)"/>.
+///     Create one with <see cref="Scan.Create(string)"/> or with <see cref="ScanWindow.Create(string)"/> on a
+///     <see cref="ScanWindow.Forward(int)"/> or <see cref="ScanWindow.Backward(int)"/> window.
 /// </remarks>
 public readonly record struct ScanStep
 {
-    internal ScanStep(ScanPattern pattern, ScanStepKind kind, int window, AddressResolver? resolver)
+    internal ScanStep(ScanPattern pattern, ScanStepKind kind, int windowSize, AddressResolver? resolver)
     {
         Pattern = pattern;
         Kind = kind;
-        Window = window;
+        WindowSize = windowSize;
         Resolver = resolver;
     }
 
@@ -27,7 +27,7 @@ public readonly record struct ScanStep
 
     internal ScanStepKind Kind { get; }
 
-    internal int Window { get; }
+    internal int WindowSize { get; }
 
     internal AddressResolver? Resolver { get; }
 
@@ -37,40 +37,39 @@ public readonly record struct ScanStep
     /// <remarks>
     ///     A match whose resolver fails is dropped.
     /// </remarks>
-    /// <param name="resolver">The resolver to apply to each match, such as <c>AddressResolver.Relative(3)</c>.</param>
+    /// <param name="resolver">The resolver to apply to each match, such as <c>AddressResolver.FromRelative(3)</c>.</param>
     /// <returns>
     ///     The step with the resolver.
     /// </returns>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="resolver"/> is <see langword="null"/>.
     /// </exception>
-    public ScanStep OnFound(AddressResolver resolver)
+    public ScanStep WithResolver(AddressResolver resolver)
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
-        return new(Pattern, Kind, Window, resolver);
+        return new(Pattern, Kind, WindowSize, resolver);
     }
 
     /// <summary>
-    ///     Gets the bytes of <paramref name="range"/> the step searches when the previous step matched at
-    ///     <paramref name="anchor"/>.
+    ///     Clamps the step's window to the bytes of <paramref name="range"/> around <paramref name="anchor"/>.
     /// </summary>
     /// <param name="range">The range the chain scans.</param>
     /// <param name="anchor">The previous step's match. The first step uses the start of the range.</param>
     /// <returns>
     ///     The bytes to search, clamped to <paramref name="range"/>.
     /// </returns>
-    internal MemoryRange Scope(MemoryRange range, Address anchor)
+    internal MemoryRange Clamp(MemoryRange range, Address anchor)
     {
         ulong offset = anchor.Value - range.Start.Value;
-        ulong window = (ulong)Window;
+        ulong size = (ulong)WindowSize;
 
         return Kind switch
         {
-            ScanStepKind.Forward => new(anchor, Math.Min(window, range.Size - offset)),
-            ScanStepKind.Backward => window >= offset
+            ScanStepKind.Forward => new(anchor, Math.Min(size, range.Size - offset)),
+            ScanStepKind.Backward => size >= offset
                 ? new(range.Start, offset)
-                : new(new Address(anchor.Value - window), window),
+                : new(new Address(anchor.Value - size), size),
             _ => range,
         };
     }

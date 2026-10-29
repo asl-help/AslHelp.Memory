@@ -127,7 +127,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
                 writer.WriteString(search.Search.Kind == ScanStepKind.Backward ? "backward" : "forward", search.Search.Pattern.ToString());
                 if (!search.IsWholeModule)
                 {
-                    WriteNumber(writer, "within", search.Search.Window);
+                    WriteNumber(writer, "within", search.Search.WindowSize);
                 }
 
                 break;
@@ -180,7 +180,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
 
         if (within is null)
         {
-            return Scan.For(pattern);
+            return Scan.Create(pattern);
         }
 
         if (within <= 0)
@@ -188,7 +188,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
             throw new JsonException($"'within' of the '{kind}' step is {within}. Write a positive size, or leave it out to search the whole module.");
         }
 
-        return kind == "backward" ? Scan.Backward(within.Value).For(pattern) : Scan.Forward(within.Value).For(pattern);
+        return kind == "backward" ? ScanWindow.Backward(within.Value).Create(pattern) : ScanWindow.Forward(within.Value).Create(pattern);
     }
 
     private static ReadKind ParseReadKind(string value, int? size)

@@ -63,7 +63,7 @@ internal sealed record LocatorError : ResultError
     public static LocatorError NotFoundNear(SearchStep step, Address anchor)
     {
         string side = step.Search.Kind == Scanning.ScanStepKind.Backward ? "before" : "from";
-        return new($"'{step.Search.Pattern}' isn't in the {step.Search.Window} bytes {side} {anchor}.");
+        return new($"'{step.Search.Pattern}' isn't in the {step.Search.WindowSize} bytes {side} {anchor}.");
     }
 
     /// <summary>

@@ -11,7 +11,7 @@ public class GlobalSlotTests
 {
     private static readonly Address _base = new(0x400000);
 
-    private static readonly MemoryLocator _locator = new(new LocatorRoute("release", new SearchStep(Scan.For("90 AB"), 2)));
+    private static readonly MemoryLocator _locator = new(new LocatorRoute("release", new SearchStep(Scan.Create("90 AB"), 2)));
 
     // The slot is located once and the pointer in it is read fresh on each access.
     [Test]
