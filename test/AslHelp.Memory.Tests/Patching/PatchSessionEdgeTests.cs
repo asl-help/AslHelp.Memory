@@ -62,14 +62,14 @@ public class PatchSessionEdgeTests
         using PatchSession session = new(memory, writer);
         var first = session.Install(Entry).Unwrap();
         int written = writer.Written.Count;
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadAt, 8)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset, 8)]);
 
         var second = session.Install(Entry, layout).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(second, Is.SameAs(first));
-            Assert.That(second.Captures, Is.False);
+            Assert.That(second.HasCaptures, Is.False);
             Assert.That(writer.Written, Has.Count.EqualTo(written));
         }
     }
@@ -90,7 +90,7 @@ public class PatchSessionEdgeTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(patch.WasAdopted, Is.False);
+            Assert.That(patch.IsAdopted, Is.False);
             Assert.That(patch.Slot, Is.EqualTo(_firstSlot + CodePatch.SlotSize));
             Assert.That(writer.Reserved, Has.Count.EqualTo(1));
             Assert.That(ReadAt(memory, Entry, 5), Is.EqualTo(Prologue));
@@ -104,7 +104,7 @@ public class PatchSessionEdgeTests
     public void Install_ARetryAfterARedirectThatReachedTheTarget_TakesBackItsOwnPatch()
     {
         var (memory, writer) = Target(MemoryLayout.X64, Base, Entry, Prologue);
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadAt, 8)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset, 8)]);
         writer.WriteError = FakePatchWriter.CreateError();
         writer.FailWriteAt = Entry;
         PatchSession session = new(memory, writer);
@@ -119,8 +119,8 @@ public class PatchSessionEdgeTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(patch.WasAdopted, Is.False);
-            Assert.That(patch.Captures, Is.True);
+            Assert.That(patch.IsAdopted, Is.False);
+            Assert.That(patch.HasCaptures, Is.True);
             Assert.That(patch.Slot, Is.EqualTo(_firstSlot));
             Assert.That(call.IsOk, Is.True);
             Assert.That(writer.Reserved, Has.Count.EqualTo(1));
@@ -166,7 +166,7 @@ public class PatchSessionEdgeTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(adopted.WasAdopted, Is.True);
+            Assert.That(adopted.IsAdopted, Is.True);
             Assert.That(adopted.Slot, Is.EqualTo(installed.Slot));
             Assert.That(adopted.Record, Is.EqualTo(installed.Record));
             Assert.That(ReadAt(memory, Entry32, 6), Is.EqualTo(Prologue32));
@@ -217,7 +217,7 @@ public class PatchSessionEdgeTests
         EntryReadFailure failing = new(memory, Entry);
         var (logger, sink) = Logged();
         PatchSession second = new(failing, ownWriter, logger);
-        Assert.That(second.Install(Entry).Unwrap().WasAdopted, Is.True);
+        Assert.That(second.Install(Entry).Unwrap().IsAdopted, Is.True);
         second.Install(other).Unwrap();
 
         failing.Fail = true;

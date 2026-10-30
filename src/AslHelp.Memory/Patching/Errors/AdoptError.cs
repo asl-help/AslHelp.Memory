@@ -66,7 +66,7 @@ internal sealed record AdoptError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static AdoptError NotOurs()
+    public static AdoptError ForeignPatch()
     {
         return new("The entry is redirected by something other than this library, so it's left alone.");
     }
@@ -88,7 +88,7 @@ internal sealed record AdoptError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static AdoptError ClaimsAnotherEntry()
+    public static AdoptError EntryMismatch()
     {
         return new("The page claims a different entry, so nothing is assumed about it.");
     }
@@ -100,7 +100,7 @@ internal sealed record AdoptError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static AdoptError ImplausibleStolenLength(int stolen)
+    public static AdoptError StolenLengthOutOfRange(int stolen)
     {
         return new($"The page records {stolen} displaced bytes, which isn't a length this library writes, so it's left alone.");
     }
@@ -112,7 +112,7 @@ internal sealed record AdoptError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static AdoptError CapturesNothing(Address entry)
+    public static AdoptError NoCaptures(Address entry)
     {
         return new($"The patch at {entry} captures nothing, so there's no call to read.");
     }

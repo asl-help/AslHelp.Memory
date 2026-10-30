@@ -20,7 +20,7 @@ internal sealed record PlanError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static PlanError NotIntel(int pointerSize)
+    public static PlanError UnsupportedArchitecture(int pointerSize)
     {
         return new($"A target with {pointerSize}-byte pointers can't be patched. Patching covers x86 and x64.");
     }
@@ -38,13 +38,13 @@ internal sealed record PlanError : ResultError
     }
 
     /// <summary>
-    ///     Creates the error for an entry whose first 5 bytes cross an 8-byte boundary.
+    ///     Creates the error for an entry whose first 5 bytes straddle 2 8-byte words.
     /// </summary>
     /// <param name="entry">The entry.</param>
     /// <returns>
     ///     The error.
     /// </returns>
-    public static PlanError StraddlesAWord(Address entry)
+    public static PlanError EntryStraddlesWord(Address entry)
     {
         return new($"The entry at {entry} crosses an 8-byte boundary, so the jump can't be written in 1 store.");
     }
@@ -56,7 +56,7 @@ internal sealed record PlanError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static PlanError UnrecognisedPrologue(Address entry)
+    public static PlanError UnrecognizedPrologue(Address entry)
     {
         return new($"The instructions at {entry} couldn't be decoded, so the jump could land inside 1 of them.");
     }

@@ -15,6 +15,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `PatchSession` in `AslHelp.Memory.Patching`, the `IPatchInstaller` that keeps the ledger of 1 run. It adopts a patch already at an entry, returns the standing patch for a repeated entry, shares a `PatchPool` between entries in its reach and on `Dispose` puts every entry back before releasing each pool no thread stands in.
 - `RemotePatchWriter` in `AslHelp.Memory.Remote`, the `IPatchWriter` for a running Windows process. It reserves memory within a relative jump of an anchor, writes code with each page's own protection put back and suspends the target's threads while a patch is written.
 
+### Changed
+- **Breaking:** `Scan.For` is now `Scan.Create`.
+- **Breaking:** `ScanWindow.For` is now `ScanWindow.Create`.
+- **Breaking:** `Scan.Forward` is now `ScanWindow.Forward`.
+- **Breaking:** `Scan.Backward` is now `ScanWindow.Backward`.
+- **Breaking:** `Scan.Range` is now `Scan.ScanRange`.
+- **Breaking:** `Scan.Ranges` is now `Scan.ScanRanges`.
+- **Breaking:** `Scan.Regions` is now `Scan.ScanRegions`.
+- **Breaking:** `ScanStep.OnFound` is now `ScanStep.WithResolver`.
+- **Breaking:** `AddressResolver.Relative` is now `AddressResolver.FromRelative`.
+- **Breaking:** `AddressResolver.Displacement` is now `AddressResolver.FromDisplacement`.
+- **Breaking:** `AddressResolver.Offset` is now `AddressResolver.FromOffset`.
+- **Breaking:** `GlobalSlot` is now `GlobalPointer`.
+- **Breaking:** `ReadKind.Branch` is now `Displacement`.
+- **Breaking:** A `branch` read in a route document is now `displacement`.
+- **Breaking:** `SearchStep.Search` is now `Scan`.
+
 ## [0.1.0-alpha.1] - 2026-10-25
 
 ### Added

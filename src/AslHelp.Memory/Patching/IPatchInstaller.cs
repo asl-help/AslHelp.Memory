@@ -19,7 +19,7 @@ public interface IPatchInstaller
     /// <remarks>
     ///     A patch already standing at the entry is adopted, layout and all, since the target is running correctly with
     ///     it. What it captures is its own writer's choice, so a caller that needs a payload checks
-    ///     <see cref="CodePatch.Captures"/>.
+    ///     <see cref="CodePatch.HasCaptures"/>.
     /// </remarks>
     /// <param name="entry">The address the method's compiled code begins at.</param>
     /// <param name="layout">What the stub copies out of the call, which may be nothing.</param>

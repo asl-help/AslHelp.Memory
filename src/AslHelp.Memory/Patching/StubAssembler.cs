@@ -22,7 +22,7 @@ internal static class StubAssembler
     /// <returns>
     ///     The assembler.
     /// </returns>
-    public static IStubAssembler For(bool is64Bit)
+    public static IStubAssembler Create(bool is64Bit)
     {
         return is64Bit ? X64 : X86;
     }

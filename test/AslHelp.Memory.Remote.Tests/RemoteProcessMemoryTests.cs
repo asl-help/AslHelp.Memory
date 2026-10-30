@@ -49,7 +49,7 @@ public class RemoteProcessMemoryTests
 
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(_memory.Read(AddressOf(handle), read).IsOk, Is.True);
+                Assert.That(_memory.Read(GetAddress(handle), read).IsOk, Is.True);
                 Assert.That(read, Is.EqualTo(bytes));
             }
         }
@@ -68,7 +68,7 @@ public class RemoteProcessMemoryTests
 
         try
         {
-            Assert.That(_memory.Read<int>(AddressOf(handle)).Unwrap(), Is.EqualTo(0x12345678));
+            Assert.That(_memory.Read<int>(GetAddress(handle)).Unwrap(), Is.EqualTo(0x12345678));
         }
         finally
         {
@@ -85,7 +85,7 @@ public class RemoteProcessMemoryTests
 
         try
         {
-            var address = AddressOf(handle);
+            var address = GetAddress(handle);
             byte[] read = new byte[4];
 
             using (Assert.EnterMultipleScope())
@@ -111,7 +111,7 @@ public class RemoteProcessMemoryTests
 
         try
         {
-            var address = AddressOf(handle);
+            var address = GetAddress(handle);
 
             var regions = _memory.GetRegions(new(address, 16)).Unwrap();
 
@@ -190,7 +190,7 @@ public class RemoteProcessMemoryTests
         Assert.That(() => new RemoteProcessMemory(null!), Throws.ArgumentNullException);
     }
 
-    private static Address AddressOf(GCHandle handle)
+    private static Address GetAddress(GCHandle handle)
     {
         return new((ulong)handle.AddrOfPinnedObject());
     }

@@ -20,35 +20,35 @@ internal interface IStubAssembler
 
     /// <summary>
     ///     Emits the claim on the record's sequence word: its low bit is set and whether it was already set is left
-    ///     where <see cref="SkipWhenClaimed"/> reads it.
+    ///     where <see cref="BeginSkip"/> reads it.
     /// </summary>
     /// <param name="code">The stub being written.</param>
     /// <param name="sequence">Where the sequence word sits in the target.</param>
-    void Claim(CodeWriter code, Address sequence);
+    void EmitClaim(CodeWriter code, Address sequence);
 
     /// <summary>
-    ///     Emits the jump a thread takes when <see cref="Claim"/> found the bit already set, over everything up to
-    ///     where <see cref="ResolveSkip"/> is called.
+    ///     Emits the jump a thread takes when <see cref="EmitClaim"/> found the bit already set, over everything up to
+    ///     where <see cref="EndSkip"/> is called.
     /// </summary>
     /// <param name="code">The stub being written.</param>
     /// <returns>
-    ///     A handle <see cref="ResolveSkip"/> takes.
+    ///     A handle <see cref="EndSkip"/> takes.
     /// </returns>
-    int SkipWhenClaimed(CodeWriter code);
+    int BeginSkip(CodeWriter code);
 
     /// <summary>
-    ///     Makes the skip from <see cref="SkipWhenClaimed"/> reach the next instruction emitted.
+    ///     Makes the skip from <see cref="BeginSkip"/> reach the next instruction emitted.
     /// </summary>
     /// <param name="code">The stub being written.</param>
-    /// <param name="skip">What <see cref="SkipWhenClaimed"/> returned.</param>
-    void ResolveSkip(CodeWriter code, int skip);
+    /// <param name="skip">What <see cref="BeginSkip"/> returned.</param>
+    void EndSkip(CodeWriter code, int skip);
 
     /// <summary>
     ///     Emits an atomic step of a counter in the record.
     /// </summary>
     /// <param name="code">The stub being written.</param>
     /// <param name="counter">Where the counter sits in the target.</param>
-    void Increment(CodeWriter code, Address counter);
+    void EmitIncrement(CodeWriter code, Address counter);
 
     /// <summary>
     ///     Emits the copy of an argument register into the record.
@@ -61,13 +61,13 @@ internal interface IStubAssembler
     /// <returns>
     ///     A successful result when the instruction exists on this target, otherwise a failed result with the reason.
     /// </returns>
-    Result CaptureRegister(CodeWriter code, Address target, int index, int width, bool indirect);
+    Result EmitRegisterCapture(CodeWriter code, Address target, int index, int width, bool indirect);
 
     /// <summary>
     ///     Emits the copy of a floating point argument register into the record.
     /// </summary>
-    /// <inheritdoc cref="CaptureRegister"/>
-    Result CaptureFloatRegister(CodeWriter code, Address target, int index, int width, bool indirect);
+    /// <inheritdoc cref="EmitRegisterCapture"/>
+    Result EmitFloatRegisterCapture(CodeWriter code, Address target, int index, int width, bool indirect);
 
     /// <summary>
     ///     Emits the copy of an argument the caller pushed into the record.
@@ -80,13 +80,13 @@ internal interface IStubAssembler
     /// <returns>
     ///     A successful result when the instruction exists on this target, otherwise a failed result with the reason.
     /// </returns>
-    Result CaptureStack(CodeWriter code, Address target, int index, int width, bool indirect);
+    Result EmitStackCapture(CodeWriter code, Address target, int index, int width, bool indirect);
 
     /// <summary>
-    ///     Emits the way out: the displaced bytes as they were, then the jump back to where they came from.
+    ///     Emits the displaced bytes as they were, then the jump that resumes the entry past them.
     /// </summary>
     /// <param name="code">The stub being written.</param>
     /// <param name="original">The bytes the redirect displaced.</param>
-    /// <param name="continueAt">The first byte of the entry the redirect left alone.</param>
-    void Resume(CodeWriter code, ReadOnlySpan<byte> original, Address continueAt);
+    /// <param name="resumeAddress">The first byte of the entry the redirect left alone, where the jump goes.</param>
+    void EmitResume(CodeWriter code, ReadOnlySpan<byte> original, Address resumeAddress);
 }

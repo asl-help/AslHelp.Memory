@@ -31,7 +31,7 @@ public sealed record ExportStep(
         return $"export '{Name}'{OffsetSuffix}";
     }
 
-    private protected override Result<Address> Next(IMemoryReader reader, MemoryModule module, Address from)
+    private protected override Result<Address> Resolve(IMemoryReader reader, MemoryModule module, Address from)
     {
         return reader.GetExport(module, Name);
     }

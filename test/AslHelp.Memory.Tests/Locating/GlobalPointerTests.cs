@@ -7,29 +7,29 @@ using System.Buffers.Binary;
 namespace AslHelp.Memory.Tests.Locating;
 
 [TestFixture]
-public class GlobalSlotTests
+public class GlobalPointerTests
 {
     private static readonly Address _base = new(0x400000);
 
-    private static readonly MemoryLocator _locator = new(new LocatorRoute("release", new SearchStep(Scan.For("90 AB"), 2)));
+    private static readonly MemoryLocator _locator = new(new LocatorRoute("release", new SearchStep(Scan.Create("90 AB"), 2)));
 
-    // The slot is located once and the pointer in it is read fresh on each access.
+    // The global is located once and the pointer in it is read fresh on each access.
     [Test]
-    public void Read_SlotRewritten_ReadsTheNewPointer()
+    public void Read_GlobalRewritten_ReadsTheNewPointer()
     {
         byte[] bytes = Code();
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
-        GlobalSlot slot = new(memory, Module(memory), _locator, TimeSpan.Zero);
+        GlobalPointer pointer = new(memory, Module(memory), _locator, TimeSpan.Zero);
 
         BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(0x0A), 0x1000);
-        var first = slot.Read().Unwrap();
+        var first = pointer.Read().Unwrap();
         BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(0x0A), 0x2000);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(first, Is.EqualTo(new Address(0x1000)));
-            Assert.That(slot.Read().Unwrap(), Is.EqualTo(new Address(0x2000)));
-            Assert.That(slot.Locate().Unwrap(), Is.EqualTo(_base + 0x0A));
+            Assert.That(pointer.Read().Unwrap(), Is.EqualTo(new Address(0x2000)));
+            Assert.That(pointer.Locate().Unwrap(), Is.EqualTo(_base + 0x0A));
         }
     }
 
@@ -38,19 +38,19 @@ public class GlobalSlotTests
     public void Read_WithinTheWait_DoesNotSearchAgain()
     {
         CountingMemory memory = new(new(_base, new byte[0x40], MemoryLayout.X64));
-        GlobalSlot slot = new(memory, Module(memory.Inner), _locator, TimeSpan.FromHours(1));
+        GlobalPointer pointer = new(memory, Module(memory.Inner), _locator, TimeSpan.FromHours(1));
 
-        _ = slot.Read();
+        _ = pointer.Read();
         int reads = memory.Reads;
 
         for (int i = 0; i < 50; i++)
         {
-            _ = slot.Read();
+            _ = pointer.Read();
         }
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(slot.Read().IsErr, Is.True);
+            Assert.That(pointer.Read().IsErr, Is.True);
             Assert.That(memory.Reads, Is.EqualTo(reads));
         }
     }
@@ -61,29 +61,29 @@ public class GlobalSlotTests
     {
         byte[] bytes = new byte[0x40];
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
-        GlobalSlot slot = new(memory, Module(memory), _locator, TimeSpan.Zero);
+        GlobalPointer pointer = new(memory, Module(memory), _locator, TimeSpan.Zero);
 
-        var before = slot.Read();
+        var before = pointer.Read();
         Code().CopyTo(bytes, 0);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(before.Error!.Message, Does.Contain("'release'"));
-            Assert.That(slot.Locate().Unwrap(), Is.EqualTo(_base + 0x0A));
+            Assert.That(pointer.Locate().Unwrap(), Is.EqualTo(_base + 0x0A));
         }
     }
 
 #if NET
-    // Reading a located slot doesn't allocate anything.
+    // Reading a located global doesn't allocate anything.
     [Test]
-    public void Read_LocatedSlot_DoesNotAllocate()
+    public void Read_LocatedGlobal_DoesNotAllocate()
     {
         BufferMemory memory = new(_base, Code(), MemoryLayout.X64);
-        GlobalSlot slot = new(memory, Module(memory), _locator, TimeSpan.Zero);
-        _ = slot.Read();
+        GlobalPointer pointer = new(memory, Module(memory), _locator, TimeSpan.Zero);
+        _ = pointer.Read();
 
         long before = GC.GetAllocatedBytesForCurrentThread();
-        var value = slot.Read();
+        var value = pointer.Read();
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         using (Assert.EnterMultipleScope())

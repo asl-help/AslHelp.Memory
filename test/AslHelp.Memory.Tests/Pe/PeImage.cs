@@ -33,7 +33,7 @@ internal sealed record PeImage(
     /// <returns>
     ///     The image.
     /// </returns>
-    public static PeImage Build(
+    public static PeImage Create(
         bool is64Bit,
         IReadOnlyList<string> names,
         string? forwarded = null,
@@ -64,7 +64,7 @@ internal sealed record PeImage(
         file.UpdateHeaders();
         configure?.Invoke(file);
 
-        return new(file, Map(file), exports);
+        return new(file, ToBytes(file), exports);
     }
 
     /// <summary>
@@ -74,7 +74,7 @@ internal sealed record PeImage(
     /// <returns>
     ///     The RVA.
     /// </returns>
-    public uint FunctionRva(string name)
+    public uint GetFunctionRva(string name)
     {
         foreach (var symbol in Exports.Entries)
         {
@@ -87,7 +87,7 @@ internal sealed record PeImage(
         throw new ArgumentException($"'{name}' isn't exported.", nameof(name));
     }
 
-    private static byte[] Map(PEFile file)
+    private static byte[] ToBytes(PEFile file)
     {
         using MemoryStream stream = new();
         file.Write(stream);

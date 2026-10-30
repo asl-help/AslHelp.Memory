@@ -124,7 +124,7 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
                 return adopted;
             }
 
-            if (!CodePatch.Plan(_memory, entry, layout).TryUnwrap(out var plan, out var planError))
+            if (!CodePatch.CreatePlan(_memory, entry, layout).TryUnwrap(out var plan, out var planError))
             {
                 return planError;
             }

@@ -32,18 +32,18 @@ var player = memory.Deref(module.Range.Start + 0x3000, 0x10, 0x8);
 
 ### Scanning
 
-`Scan` searches memory for a signature, where `??` matches any byte. `OnFound` turns each match into the address it points to:
+`Scan` searches memory for a signature, where `??` matches any byte. `WithResolver` turns each match into the address it points to:
 
 ```cs
-var step = Scan.For("E8 ?? ?? ?? ??").OnFound(AddressResolver.Displacement(1));
+var step = Scan.Create("E8 ?? ?? ?? ??").WithResolver(AddressResolver.FromDisplacement(1));
 
-foreach (var address in Scan.Range(memory, module.Range, step))
+foreach (var address in Scan.ScanRange(memory, module.Range, step))
 {
     Console.WriteLine(address);
 }
 ```
 
-`Scan.Regions` searches every readable region of the process.
+`Scan.ScanRegions` searches every readable region of the process. `ScanWindow.Forward(n)` and `ScanWindow.Backward(n)` make a window of n bytes around the previous step's match. `Create` on that window makes the step.
 
 ### Exports
 
@@ -75,7 +75,7 @@ var locator = JsonSerializer.Deserialize<MemoryLocator>(json, options);
 var sceneManager = locator.Locate(memory, module);
 ```
 
-`Routes["name"]` runs only 1 route. `GlobalSlot` locates a slot once and reads the pointer in it on each access.
+`Routes["name"]` runs only 1 route. `GlobalPointer` locates a global once and reads the pointer in it on each access.
 
 ### Watching a value
 

@@ -15,7 +15,7 @@ internal sealed class X64StubAssembler : IntelStubAssembler
     ///     <c>lock bts</c> sets the low bit and leaves its old value in the carry flag. A set bit means another thread
     ///     is halfway through its stores. The carry sends the current thread past them.
     /// </remarks>
-    public override void Claim(CodeWriter code, Address sequence)
+    public override void EmitClaim(CodeWriter code, Address sequence)
     {
         // lock bts qword [rip+disp32], 0
         code.Emit(0xF0, 0x48, 0x0F, 0xBA, 0x2D);
@@ -24,7 +24,7 @@ internal sealed class X64StubAssembler : IntelStubAssembler
     }
 
     /// <inheritdoc/>
-    public override void Increment(CodeWriter code, Address counter)
+    public override void EmitIncrement(CodeWriter code, Address counter)
     {
         // lock inc qword [rip+disp32]
         code.Emit(0xF0, 0x48, 0xFF, 0x05);
@@ -36,7 +36,7 @@ internal sealed class X64StubAssembler : IntelStubAssembler
     ///     The convention passes the first 4 arguments in <c>rcx</c>, <c>rdx</c>, <c>r8</c> and <c>r9</c>. A
     ///     value goes straight from its register to the record. An address is followed through the accumulator.
     /// </remarks>
-    public override Result CaptureRegister(CodeWriter code, Address target, int index, int width, bool indirect)
+    public override Result EmitRegisterCapture(CodeWriter code, Address target, int index, int width, bool indirect)
     {
         int register = index switch
         {
@@ -49,12 +49,12 @@ internal sealed class X64StubAssembler : IntelStubAssembler
 
         if (register < 0)
         {
-            return CaptureError.NotInARegister(index);
+            return CaptureError.RegisterIndexOutOfRange(index);
         }
 
         if (!indirect)
         {
-            OperandSizeIfShort(code, width);
+            EmitOperandSizeIfShort(code, width);
 
             int rex = (width == 8 ? 0x08 : 0x00) | (register >= 8 ? 0x04 : 0x00);
 
@@ -70,7 +70,7 @@ internal sealed class X64StubAssembler : IntelStubAssembler
             return Result.Ok();
         }
 
-        PushScratch(code);
+        EmitPushScratch(code);
 
         // xor eax, eax
         code.Emit(0x31, 0xC0);
@@ -85,11 +85,11 @@ internal sealed class X64StubAssembler : IntelStubAssembler
         // mov rax, [reg]
         code.Emit((byte)(0x48 | (register >= 8 ? 0x01 : 0x00)), 0x8B, (byte)(register & 7));
 
-        ResolveSkip(code, skip);
+        EndSkip(code, skip);
 
-        Store(code, target, width);
+        EmitStore(code, target, width);
 
-        PopScratch(code);
+        EmitPopScratch(code);
 
         return Result.Ok();
     }
@@ -98,11 +98,11 @@ internal sealed class X64StubAssembler : IntelStubAssembler
     /// <remarks>
     ///     Copies a float straight from its register to the record, without passing through the accumulator.
     /// </remarks>
-    public override Result CaptureFloatRegister(CodeWriter code, Address target, int index, int width, bool indirect)
+    public override Result EmitFloatRegisterCapture(CodeWriter code, Address target, int index, int width, bool indirect)
     {
         if ((uint)index >= 4)
         {
-            return CaptureError.NotInARegister(index);
+            return CaptureError.RegisterIndexOutOfRange(index);
         }
 
         if (width is not (4 or 8))
@@ -112,7 +112,7 @@ internal sealed class X64StubAssembler : IntelStubAssembler
 
         if (indirect)
         {
-            return CaptureError.FloatIsNotAnAddress();
+            return CaptureError.FloatNotAnAddress();
         }
 
         // movss or movsd [rip+disp32], xmm<index>
@@ -122,9 +122,9 @@ internal sealed class X64StubAssembler : IntelStubAssembler
         return Result.Ok();
     }
 
-    protected override void Store(CodeWriter code, Address target, int width)
+    protected override void EmitStore(CodeWriter code, Address target, int width)
     {
-        OperandSizeIfShort(code, width);
+        EmitOperandSizeIfShort(code, width);
 
         // mov [rip+disp32], rax
         if (width == 8)
@@ -136,7 +136,7 @@ internal sealed class X64StubAssembler : IntelStubAssembler
         code.EmitRelative(target);
     }
 
-    protected override void RexW(CodeWriter code)
+    protected override void EmitRexW(CodeWriter code)
     {
         code.Emit(0x48);
     }

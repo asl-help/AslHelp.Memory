@@ -18,8 +18,8 @@ public class MemoryLocatorTests
         var memory = Memory(0x08, 0x90);
 
         MemoryLocator locator = new(
-            new LocatorRoute("release", new SearchStep(Scan.For("90"))),
-            new LocatorRoute("master", new SearchStep(Scan.For("91"))));
+            new LocatorRoute("release", new SearchStep(Scan.Create("90"))),
+            new LocatorRoute("master", new SearchStep(Scan.Create("91"))));
 
         Assert.That(locator.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x08));
     }
@@ -31,8 +31,8 @@ public class MemoryLocatorTests
         var memory = Memory(0x08, 0x91);
 
         MemoryLocator locator = new(
-            new LocatorRoute("release", new SearchStep(Scan.For("90"))),
-            new LocatorRoute("master", new SearchStep(Scan.For("91"))));
+            new LocatorRoute("release", new SearchStep(Scan.Create("90"))),
+            new LocatorRoute("master", new SearchStep(Scan.Create("91"))));
 
         Assert.That(locator.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x08));
     }
@@ -46,8 +46,8 @@ public class MemoryLocatorTests
         memory.Write(_base + 0x20, [0x91]).Unwrap();
 
         MemoryLocator locator = new(
-            new LocatorRoute("release", new SearchStep(Scan.For("90"))),
-            new LocatorRoute("master", new SearchStep(Scan.For("91"))));
+            new LocatorRoute("release", new SearchStep(Scan.Create("90"))),
+            new LocatorRoute("master", new SearchStep(Scan.Create("91"))));
 
         Assert.That(locator.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x20));
     }
@@ -59,8 +59,8 @@ public class MemoryLocatorTests
         var memory = Memory(0x00, 0x00);
 
         MemoryLocator locator = new(
-            new LocatorRoute("release", new SearchStep(Scan.For("90"))),
-            new LocatorRoute("master", new SearchStep(Scan.For("91"))));
+            new LocatorRoute("release", new SearchStep(Scan.Create("90"))),
+            new LocatorRoute("master", new SearchStep(Scan.Create("91"))));
 
         Assert.That(
             locator.Locate(memory, Module(memory)).Error!.Message,
@@ -80,8 +80,8 @@ public class MemoryLocatorTests
         logger.Add(sink);
 
         MemoryLocator locator = new(
-            new LocatorRoute("release", new SearchStep(Scan.For("90"))),
-            new LocatorRoute("master", new SearchStep(Scan.For("91"))));
+            new LocatorRoute("release", new SearchStep(Scan.Create("90"))),
+            new LocatorRoute("master", new SearchStep(Scan.Create("91"))));
 
         _ = locator.Locate(memory, Module(memory), logger);
 
@@ -95,8 +95,8 @@ public class MemoryLocatorTests
         var memory = Memory(0x08, 0x91);
 
         MemoryLocator locator = new(
-            new LocatorRoute("release", new SearchStep(Scan.For("90"))),
-            new LocatorRoute("master", new SearchStep(Scan.For("91"))));
+            new LocatorRoute("release", new SearchStep(Scan.Create("90"))),
+            new LocatorRoute("master", new SearchStep(Scan.Create("91"))));
 
         using (Assert.EnterMultipleScope())
         {

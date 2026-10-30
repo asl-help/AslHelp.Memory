@@ -29,7 +29,7 @@ public class CodePatchInstallEdgeTests
     public void Install_TheLastSlotOfAPool_RedirectsAndFillsThePool()
     {
         var (memory, writer, pool) = Target(MemoryLayout.X64, _base, _entry, _prologue);
-        var plan = Plan(memory, _entry, CaptureLayout.None);
+        var plan = CreatePlan(memory, _entry, CaptureLayout.None);
         var last = Address.Zero;
 
         while (pool.TryRent(out _, out var slot))
@@ -58,8 +58,8 @@ public class CodePatchInstallEdgeTests
         var (memory, writer, pool) = Target(MemoryLayout.X64, _base, _entry, _prologue);
         memory.Write(second, _prologue).Unwrap();
 
-        var first = CodePatch.Install(memory, writer, pool, Plan(memory, _entry, CaptureLayout.None), out _).Unwrap();
-        var next = CodePatch.Install(memory, writer, pool, Plan(memory, second, CaptureLayout.None), out _).Unwrap();
+        var first = CodePatch.Install(memory, writer, pool, CreatePlan(memory, _entry, CaptureLayout.None), out _).Unwrap();
+        var next = CodePatch.Install(memory, writer, pool, CreatePlan(memory, second, CaptureLayout.None), out _).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
@@ -78,7 +78,7 @@ public class CodePatchInstallEdgeTests
     {
         var entry = _entry + 3;
         var (memory, writer, pool) = Target(MemoryLayout.X64, _base, entry, _prologue);
-        var plan = Plan(memory, entry, CaptureLayout.None);
+        var plan = CreatePlan(memory, entry, CaptureLayout.None);
         FakeThreadSuspension suspension = new();
         suspension.Positions.Add(_entry + offset);
         writer.Suspension = suspension;
@@ -94,7 +94,7 @@ public class CodePatchInstallEdgeTests
     {
         var entry = _entry + 3;
         var (memory, writer, pool) = Target(MemoryLayout.X64, _base, entry, _prologue);
-        var plan = Plan(memory, entry, CaptureLayout.None);
+        var plan = CreatePlan(memory, entry, CaptureLayout.None);
         FakeThreadSuspension suspension = new();
         suspension.Positions.Add(entry + 4);
         writer.Suspension = suspension;
@@ -115,7 +115,7 @@ public class CodePatchInstallEdgeTests
         var (memory, writer, pool) = Target(MemoryLayout.X64, _base, _entry, _prologue);
         var gone = _entry + 0x1000;
         BufferMemory planned = new(gone, [.. _prologue, .. new byte[0x40]], MemoryLayout.X64);
-        var plan = Plan(planned, gone, CaptureLayout.None);
+        var plan = CreatePlan(planned, gone, CaptureLayout.None);
         var (_, slot) = NextSlot(pool);
 
         var result = CodePatch.Install(memory, writer, pool, plan, out var attempted);
@@ -137,7 +137,7 @@ public class CodePatchInstallEdgeTests
         FakeThreadSuspension suspension = new();
         writer.Suspension = suspension;
 
-        CodePatch.Install(memory, writer, pool, Plan(memory, _entry, CaptureLayout.None), out _).Unwrap();
+        CodePatch.Install(memory, writer, pool, CreatePlan(memory, _entry, CaptureLayout.None), out _).Unwrap();
 
         Assert.That(suspension.Disposed, Is.True);
     }
@@ -152,7 +152,7 @@ public class CodePatchInstallEdgeTests
         writer.WriteError = FakePatchWriter.CreateError();
         writer.FailWriteAt = _entry;
 
-        var result = CodePatch.Install(memory, writer, pool, Plan(memory, _entry, CaptureLayout.None), out _);
+        var result = CodePatch.Install(memory, writer, pool, CreatePlan(memory, _entry, CaptureLayout.None), out _);
 
         using (Assert.EnterMultipleScope())
         {
@@ -169,7 +169,7 @@ public class CodePatchInstallEdgeTests
         FakeThreadSuspension suspension = new() { IsComplete = false };
         writer.Suspension = suspension;
 
-        var result = CodePatch.Install(memory, writer, pool, Plan(memory, _entry, CaptureLayout.None), out _);
+        var result = CodePatch.Install(memory, writer, pool, CreatePlan(memory, _entry, CaptureLayout.None), out _);
 
         using (Assert.EnterMultipleScope())
         {
@@ -183,7 +183,7 @@ public class CodePatchInstallEdgeTests
     public void Install_AStubThatFailsToCompose_ReturnsTheSlotAndWritesNothing()
     {
         var (memory, writer, pool) = Target(MemoryLayout.X64, _base, _entry, _prologue);
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadAt, 3)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset, 3)]);
         PatchPlan plan = new(_entry, _prologue, layout, StubAssembler.X64);
         var (_, slot) = NextSlot(pool);
 
@@ -203,7 +203,7 @@ public class CodePatchInstallEdgeTests
     public void Restore_ASuspendThatFails_ReturnsTheErrorAndWritesNothing()
     {
         var (memory, writer, pool) = Target(MemoryLayout.X64, _base, _entry, _prologue);
-        var patch = CodePatch.Install(memory, writer, pool, Plan(memory, _entry, CaptureLayout.None), out _).Unwrap();
+        var patch = CodePatch.Install(memory, writer, pool, CreatePlan(memory, _entry, CaptureLayout.None), out _).Unwrap();
         var error = FakePatchWriter.CreateError();
         writer.SuspendError = error;
 
@@ -222,7 +222,7 @@ public class CodePatchInstallEdgeTests
     public void Restore_A32BitPatch_PutsTheDisplacedBytesBack()
     {
         var (memory, writer, pool) = Target(MemoryLayout.X86, _base32, _entry32, _prologue32);
-        var patch = CodePatch.Install(memory, writer, pool, Plan(memory, _entry32, CaptureLayout.None), out _).Unwrap();
+        var patch = CodePatch.Install(memory, writer, pool, CreatePlan(memory, _entry32, CaptureLayout.None), out _).Unwrap();
 
         patch.Restore(memory, writer).Unwrap();
 
@@ -242,7 +242,7 @@ public class CodePatchInstallEdgeTests
     {
         var entry = new Address(ulong.MaxValue - 7);
         var (memory, writer, pool) = Target(MemoryLayout.X64, new(0xFFFF_FFFF_FFFE_0000), entry, _prologue);
-        var patch = CodePatch.Install(memory, writer, pool, Plan(memory, entry, CaptureLayout.None), out _).Unwrap();
+        var patch = CodePatch.Install(memory, writer, pool, CreatePlan(memory, entry, CaptureLayout.None), out _).Unwrap();
 
         var result = patch.Restore(memory, writer);
 
@@ -316,7 +316,7 @@ public class CodePatchInstallEdgeTests
         var record = word + 0x200;
         byte[] bytes = new byte[0x200 + CaptureLayout.RecordSize];
 
-        byte[] page = CodePatch.Compose(entry, slot, record, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
+        byte[] page = CodePatch.Assemble(entry, slot, record, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
         page.CopyTo(bytes, 0x40);
         Jump(entry, slot).CopyTo(bytes, offset);
 
@@ -326,9 +326,9 @@ public class CodePatchInstallEdgeTests
         return (memory, writer, CodePatch.Adopt(memory, entry).Unwrap());
     }
 
-    private static PatchPlan Plan(IMemoryReader memory, Address entry, CaptureLayout layout)
+    private static PatchPlan CreatePlan(IMemoryReader memory, Address entry, CaptureLayout layout)
     {
-        return CodePatch.Plan(memory, entry, layout).Unwrap();
+        return CodePatch.CreatePlan(memory, entry, layout).Unwrap();
     }
 
     // Peeks at the slot the next install rents by renting it and giving it straight back.

@@ -362,7 +362,7 @@ public class InstructionLengthTests
     public void Steal_AFirstInstructionAlreadyLongEnough_StopsOnIt()
     {
         // mono_assembly_foreach on x64 opens with a 5-byte store.
-        Assert.That(Steal("48 89 5C 24 08 48 89 6C 24 10", is64Bit: true, atLeast: 5), Is.EqualTo((5, false)));
+        Assert.That(Steal("48 89 5C 24 08 48 89 6C 24 10", is64Bit: true, minimumLength: 5), Is.EqualTo((5, false)));
     }
 
     // Short instructions add up until they cover the request.
@@ -370,7 +370,7 @@ public class InstructionLengthTests
     public void Steal_InstructionsShorterThanTheRequest_AccumulatesUntilItReachesIt()
     {
         // push rbx then sub rsp, 0x20.
-        Assert.That(Steal("40 53 48 83 EC 20 80 3D 77 80 83 00 00", is64Bit: true, atLeast: 5), Is.EqualTo((6, false)));
+        Assert.That(Steal("40 53 48 83 EC 20 80 3D 77 80 83 00 00", is64Bit: true, minimumLength: 5), Is.EqualTo((6, false)));
     }
 
     // A rip relative instruction in the run makes the run position dependent.
@@ -378,28 +378,28 @@ public class InstructionLengthTests
     public void Steal_APositionDependentInstructionAmongThoseStolen_ReportsTheRunRelative()
     {
         // Reaching 8 bytes pulls in the rip relative compare that follows the frame setup.
-        Assert.That(Steal("40 53 48 83 EC 20 80 3D 77 80 83 00 00", is64Bit: true, atLeast: 8), Is.EqualTo((13, true)));
+        Assert.That(Steal("40 53 48 83 EC 20 80 3D 77 80 83 00 00", is64Bit: true, minimumLength: 8), Is.EqualTo((13, true)));
     }
 
     // A function that opens with a relative jump makes the run position dependent.
     [Test]
     public void Steal_AFunctionAlreadyJumpingElsewhere_ReportsTheRunRelative()
     {
-        Assert.That(Steal("E9 5B 00 00 00", is64Bit: true, atLeast: 5), Is.EqualTo((5, true)));
+        Assert.That(Steal("E9 5B 00 00 00", is64Bit: true, minimumLength: 5), Is.EqualTo((5, true)));
     }
 
     // A rip relative first instruction makes the run position dependent.
     [Test]
     public void Steal_ARipRelativeFirstInstruction_ReportsTheRunRelative()
     {
-        Assert.That(Steal("48 8D 0D 1F 93 7D 00", is64Bit: true, atLeast: 5), Is.EqualTo((7, true)));
+        Assert.That(Steal("48 8D 0D 1F 93 7D 00", is64Bit: true, minimumLength: 5), Is.EqualTo((7, true)));
     }
 
     // A run ends on an instruction boundary past the request.
     [Test]
     public void Steal_A32BitPrologue_TakesWholeInstructionsPastTheRequest()
     {
-        Assert.That(Steal("55 8B EC 83 EC 1C 53", is64Bit: false, atLeast: 5), Is.EqualTo((6, false)));
+        Assert.That(Steal("55 8B EC 83 EC 1C 53", is64Bit: false, minimumLength: 5), Is.EqualTo((6, false)));
     }
 
     // An absolute address in a 32-bit run keeps the run movable.
@@ -407,7 +407,7 @@ public class InstructionLengthTests
     public void Steal_A32BitPrologueReadingAnAbsoluteAddress_ReportsTheRunAbsolute()
     {
         // The absolute displacement is not position dependent, so the whole run stays movable.
-        Assert.That(Steal("55 8B EC 83 3D 5C 2A 57 10 00", is64Bit: false, atLeast: 5), Is.EqualTo((10, false)));
+        Assert.That(Steal("55 8B EC 83 3D 5C 2A 57 10 00", is64Bit: false, minimumLength: 5), Is.EqualTo((10, false)));
     }
 
     // A run that can't be moved into a stub is refused.
@@ -420,14 +420,14 @@ public class InstructionLengthTests
     [TestCase("E8 00 00 00 00")] // a direct call would come back into the stub too
     public void Steal_Failing_Refuses(string hex)
     {
-        Assert.That(Steals(hex, is64Bit: false, atLeast: 5), Is.False);
+        Assert.That(Steals(hex, is64Bit: false, minimumLength: 5), Is.False);
     }
 
     // A request for 0 bytes is refused.
     [Test]
     public void Steal_NothingAtAll_Refuses()
     {
-        Assert.That(Steals("55 8B EC", is64Bit: false, atLeast: 0), Is.False);
+        Assert.That(Steals("55 8B EC", is64Bit: false, minimumLength: 0), Is.False);
     }
 
     // A refused run leaves both outputs at their defaults.
@@ -435,7 +435,7 @@ public class InstructionLengthTests
     public void Steal_Refusal_LeavesTheOutputsClear()
     {
         // The rip relative lea decodes, then the buffer runs out short of the request.
-        _ = InstructionLength.TryStealLength(Bytes("48 8D 0D 1F 93 7D 00"), is64Bit: true, atLeast: 12, out int length, out bool anyRelative);
+        _ = InstructionLength.TryStealLength(Bytes("48 8D 0D 1F 93 7D 00"), is64Bit: true, minimumLength: 12, out int length, out bool anyRelative);
 
         using (Assert.EnterMultipleScope())
         {
@@ -444,14 +444,14 @@ public class InstructionLengthTests
         }
     }
 
-    private static bool Steals(string hex, bool is64Bit, int atLeast)
+    private static bool Steals(string hex, bool is64Bit, int minimumLength)
     {
-        return InstructionLength.TryStealLength(Bytes(hex), is64Bit, atLeast, out _, out _);
+        return InstructionLength.TryStealLength(Bytes(hex), is64Bit, minimumLength, out _, out _);
     }
 
-    private static (int Length, bool AnyRelative) Steal(string hex, bool is64Bit, int atLeast)
+    private static (int Length, bool AnyRelative) Steal(string hex, bool is64Bit, int minimumLength)
     {
-        Assert.That(InstructionLength.TryStealLength(Bytes(hex), is64Bit, atLeast, out int length, out bool anyRelative), Is.True, hex);
+        Assert.That(InstructionLength.TryStealLength(Bytes(hex), is64Bit, minimumLength, out int length, out bool anyRelative), Is.True, hex);
 
         return (length, anyRelative);
     }

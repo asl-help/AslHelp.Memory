@@ -62,7 +62,7 @@ public partial class CodePatchTests
 
         public void WritePayload(byte[] payload)
         {
-            payload.CopyTo(_bytes, RecordAt + CaptureLayout.PayloadAt);
+            payload.CopyTo(_bytes, RecordAt + CaptureLayout.PayloadOffset);
         }
 
         private void Reading(Address address)

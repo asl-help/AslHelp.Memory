@@ -91,11 +91,11 @@ internal static class InstructionLength
                 return false;
             }
 
-            shape = TwoByteShape(code[pos++], operand16);
+            shape = GetTwoByteShape(code[pos++], operand16);
         }
         else
         {
-            shape = OneByteShape(opcode, is64Bit, operand16);
+            shape = GetOneByteShape(opcode, is64Bit, operand16);
         }
 
         if (shape == Shape.Refused)
@@ -137,14 +137,14 @@ internal static class InstructionLength
 
     /// <summary>
     ///     Decodes forward from the start of <paramref name="code"/> until whole instructions cover at least
-    ///     <paramref name="atLeast"/> bytes.
+    ///     <paramref name="minimumLength"/> bytes.
     /// </summary>
     /// <param name="code">The bytes to decode, starting on an instruction boundary.</param>
     /// <param name="is64Bit">Whether the code runs in 64-bit mode.</param>
-    /// <param name="atLeast">The number of bytes the patch needs, 5 for a <c>jmp rel32</c>.</param>
+    /// <param name="minimumLength">The number of bytes the patch needs, 5 for a <c>jmp rel32</c>.</param>
     /// <param name="length">
-    ///     The total length of the decoded instructions, which is at least <paramref name="atLeast"/>, or <c>0</c>
-    ///     when they were not all decoded.
+    ///     The total length of the decoded instructions, which is at least <paramref name="minimumLength"/>. It is
+    ///     <c>0</c> when they were not all decoded.
     /// </param>
     /// <param name="anyRelative">
     ///     Whether any decoded instruction reaches memory or a branch target relative to its own address.
@@ -157,12 +157,12 @@ internal static class InstructionLength
     ///     belong to the next function. Also refuses a call anywhere in the run, because the moved call would leave the
     ///     stub's address on the stack for a thread to return to.
     /// </remarks>
-    public static bool TryStealLength(ReadOnlySpan<byte> code, bool is64Bit, int atLeast, out int length, out bool anyRelative)
+    public static bool TryStealLength(ReadOnlySpan<byte> code, bool is64Bit, int minimumLength, out int length, out bool anyRelative)
     {
         length = 0;
         anyRelative = false;
 
-        if (atLeast < 1)
+        if (minimumLength < 1)
         {
             return false;
         }
@@ -170,15 +170,15 @@ internal static class InstructionLength
         int total = 0;
         bool relative = false;
 
-        while (total < atLeast)
+        while (total < minimumLength)
         {
             if (!TryDecode(code[total..], is64Bit, out int size, out bool isRelative))
             {
                 return false;
             }
 
-            var flow = FlowOf(code[total..], is64Bit);
-            if (flow == Flow.Calls || (flow == Flow.Ends && total + size < atLeast))
+            var flow = GetFlow(code[total..], is64Bit);
+            if (flow == Flow.Calls || (flow == Flow.Terminates && total + size < minimumLength))
             {
                 return false;
             }
@@ -207,7 +207,7 @@ internal static class InstructionLength
     }
 
     // Returns whether a decoded instruction falls through, ends the straight path or calls.
-    private static Flow FlowOf(ReadOnlySpan<byte> code, bool is64Bit)
+    private static Flow GetFlow(ReadOnlySpan<byte> code, bool is64Bit)
     {
         int pos = 0;
 
@@ -223,7 +223,7 @@ internal static class InstructionLength
 
         if (pos + 1 > code.Length)
         {
-            return Flow.Falls;
+            return Flow.FallsThrough;
         }
 
         int next = pos + 1 < code.Length ? code[pos + 1] : 0;
@@ -231,17 +231,17 @@ internal static class InstructionLength
         return code[pos] switch
         {
             // ret, ret imm16, the far returns, int3 and iret
-            0xC2 or 0xC3 or 0xCA or 0xCB or 0xCC or 0xCF => Flow.Ends,
-            0x0F when next == 0x0B => Flow.Ends, // ud2
-            0xE9 or 0xEB => Flow.Ends, // jmp rel32 and jmp rel8
+            0xC2 or 0xC3 or 0xCA or 0xCB or 0xCC or 0xCF => Flow.Terminates,
+            0x0F when next == 0x0B => Flow.Terminates, // ud2
+            0xE9 or 0xEB => Flow.Terminates, // jmp rel32 and jmp rel8
             0xE8 => Flow.Calls, // call rel32
             0xFF => ((next >> 3) & 7) switch
             {
                 2 or 3 => Flow.Calls,
-                4 or 5 => Flow.Ends,
-                _ => Flow.Falls,
+                4 or 5 => Flow.Terminates,
+                _ => Flow.FallsThrough,
             },
-            _ => Flow.Falls,
+            _ => Flow.FallsThrough,
         };
     }
 
@@ -416,7 +416,7 @@ internal static class InstructionLength
         }
     }
 
-    private static Shape OneByteShape(byte opcode, bool is64Bit, bool operand16)
+    private static Shape GetOneByteShape(byte opcode, bool is64Bit, bool operand16)
     {
         return opcode switch
         {
@@ -498,7 +498,7 @@ internal static class InstructionLength
         };
     }
 
-    private static Shape TwoByteShape(byte opcode, bool operand16)
+    private static Shape GetTwoByteShape(byte opcode, bool operand16)
     {
         return opcode switch
         {
@@ -575,8 +575,8 @@ internal static class InstructionLength
 
     private enum Flow
     {
-        Falls,
-        Ends,
+        FallsThrough,
+        Terminates,
         Calls,
     }
 }

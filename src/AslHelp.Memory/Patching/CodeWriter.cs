@@ -6,12 +6,12 @@ namespace AslHelp.Memory.Patching;
 ///     Collects the bytes of a stub and measures displacements from where the bytes will be in the target.
 /// </summary>
 /// <remarks>
-///     A jump whose target is not emitted yet is written with a placeholder and patched once the target's position is
+///     A jump whose target is not emitted yet is written with a placeholder and overwritten once the target's position is
 ///     known, so no instruction's length is counted anywhere but where it is emitted.
 /// </remarks>
-/// <param name="standsAt">Where the first byte will stand in the target.</param>
+/// <param name="baseAddress">Where the first byte will stand in the target.</param>
 internal sealed class CodeWriter(
-    Address standsAt)
+    Address baseAddress)
 {
     private byte[] _bytes = new byte[0xC0];
 
@@ -21,13 +21,13 @@ internal sealed class CodeWriter(
     public int Length { get; private set; }
 
     /// <summary>
-    ///     Gets where the next byte will stand in the target.
+    ///     Gets the address the next byte will have in the target.
     /// </summary>
-    public Address Here => standsAt + Length;
+    public Address NextAddress => baseAddress + Length;
 
     public void Emit(params ReadOnlySpan<byte> bytes)
     {
-        Reserve(bytes.Length);
+        EnsureCapacity(bytes.Length);
 
         bytes.CopyTo(_bytes.AsSpan(Length));
         Length += bytes.Length;
@@ -49,17 +49,22 @@ internal sealed class CodeWriter(
     /// </remarks>
     public void EmitRelative(Address target, int trailing = 0)
     {
-        EmitInt32(unchecked((int)(target - (Here + 4 + trailing))));
+        EmitInt32(unchecked((int)(target - (NextAddress + 4 + trailing))));
     }
 
-    public void Patch(int at, byte value)
+    /// <summary>
+    ///     Overwrites 1 byte already emitted, for a jump whose target was not known when it was emitted.
+    /// </summary>
+    /// <param name="offset">Where the byte is, counted from the first byte emitted.</param>
+    /// <param name="value">The byte to write.</param>
+    public void Overwrite(int offset, byte value)
     {
-        _bytes[at] = value;
+        _bytes[offset] = value;
     }
 
-    public ReadOnlySpan<byte> Written => _bytes.AsSpan(0, Length);
+    public ReadOnlySpan<byte> WrittenSpan => _bytes.AsSpan(0, Length);
 
-    private void Reserve(int count)
+    private void EnsureCapacity(int count)
     {
         if (Length + count > _bytes.Length)
         {

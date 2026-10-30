@@ -16,19 +16,19 @@ public class LocatorRouteTests
     [Test]
     public void Locate_ExportStep_ReturnsTheExportPlusTheOffset()
     {
-        var image = PeImage.Build(true, ["Alpha", "Beta"]);
+        var image = PeImage.Create(true, ["Alpha", "Beta"]);
         BufferMemory memory = new(_base, image.Bytes, MemoryLayout.X64);
 
         LocatorRoute route = new("release", new ExportStep("Beta", 2));
 
-        Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + image.FunctionRva("Beta") + 2));
+        Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + image.GetFunctionRva("Beta") + 2));
     }
 
     // A missing export fails the step.
     [Test]
     public void Locate_MissingExport_NamesTheStep()
     {
-        var image = PeImage.Build(true, ["Alpha"]);
+        var image = PeImage.Create(true, ["Alpha"]);
         BufferMemory memory = new(_base, image.Bytes, MemoryLayout.X64);
 
         var located = new LocatorRoute("release", new ExportStep("Gamma")).Locate(memory, Module(memory));
@@ -45,7 +45,7 @@ public class LocatorRouteTests
         bytes[0x20] = 0x90;
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        LocatorRoute route = new("release", new OffsetStep(0x04), new SearchStep(Scan.Forward(0x30).For("90")));
+        LocatorRoute route = new("release", new OffsetStep(0x04), new SearchStep(ScanWindow.Forward(0x30).Create("90")));
 
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x08));
     }
@@ -59,7 +59,7 @@ public class LocatorRouteTests
         bytes[0x20] = 0x90;
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        LocatorRoute route = new("release", new OffsetStep(0x30), new SearchStep(Scan.Backward(0x30).For("90")));
+        LocatorRoute route = new("release", new OffsetStep(0x30), new SearchStep(ScanWindow.Backward(0x30).Create("90")));
 
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x20));
     }
@@ -70,7 +70,7 @@ public class LocatorRouteTests
     {
         BufferMemory memory = new(_base, new byte[0x40], MemoryLayout.X64);
 
-        var located = new LocatorRoute("release", new SearchStep(Scan.Forward(0x10).For("AB CD"))).Locate(memory, Module(memory));
+        var located = new LocatorRoute("release", new SearchStep(ScanWindow.Forward(0x10).Create("AB CD"))).Locate(memory, Module(memory));
 
         Assert.That(located.Error!.Message, Does.Contain("'AB CD' isn't in the 16 bytes from 0x400000"));
     }
@@ -83,7 +83,7 @@ public class LocatorRouteTests
         bytes[0x08] = 0x90;
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        LocatorRoute route = new("release", new SearchStep(Scan.For("90"), 3));
+        LocatorRoute route = new("release", new SearchStep(Scan.Create("90"), 3));
 
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x0B));
     }
@@ -97,21 +97,35 @@ public class LocatorRouteTests
         BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(0x13), 0x20);
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        LocatorRoute route = new("release", new SearchStep(Scan.For("48 8B 05"), 3), new ReadStep(ReadKind.Global));
+        LocatorRoute route = new("release", new SearchStep(Scan.Create("48 8B 05"), 3), new ReadStep(ReadKind.Global));
 
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x17 + 0x20));
     }
 
-    // A branch read adds the signed distance to the end of the instruction.
+    // A global read at a pointer size of 4 returns the operand as the absolute address.
     [Test]
-    public void Locate_BranchRead_FollowsTheDistance()
+    public void Locate_GlobalReadOn32Bit_ReturnsTheAbsoluteOperand()
+    {
+        byte[] bytes = new byte[0x40];
+        bytes[0x10] = 0xA1;
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0x11), 0x401000);
+        BufferMemory memory = new(_base, bytes, MemoryLayout.X86);
+
+        LocatorRoute route = new("release", new SearchStep(Scan.Create("A1"), 1), new ReadStep(ReadKind.Global));
+
+        Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(new Address(0x401000)));
+    }
+
+    // A displacement read adds the signed distance to the end of the instruction.
+    [Test]
+    public void Locate_DisplacementRead_FollowsTheDistance()
     {
         byte[] bytes = new byte[0x40];
         bytes[0x20] = 0xE8;
         BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(0x21), -0x15);
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        LocatorRoute route = new("release", new SearchStep(Scan.For("E8"), 1), new ReadStep(ReadKind.Branch));
+        LocatorRoute route = new("release", new SearchStep(Scan.Create("E8"), 1), new ReadStep(ReadKind.Displacement));
 
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + 0x10));
     }
@@ -138,7 +152,7 @@ public class LocatorRouteTests
         bytes[0x10] = 0x90;
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        LocatorRoute route = new("release", new SearchStep(Scan.For("90")), new ReadStep(ReadKind.Pointer));
+        LocatorRoute route = new("release", new SearchStep(Scan.Create("90")), new ReadStep(ReadKind.Pointer));
 
         Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(new Address(0x90)));
     }
@@ -152,7 +166,7 @@ public class LocatorRouteTests
         bytes[0x10] = 0x90;
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        var located = new LocatorRoute("release", new SearchStep(Scan.For("90"))).Locate(memory, Module(memory));
+        var located = new LocatorRoute("release", new SearchStep(Scan.Create("90"))).Locate(memory, Module(memory));
 
         Assert.That(located.Error!.Message, Does.Contain("0x400000").And.Contain("0x400010"));
     }
@@ -178,7 +192,7 @@ public class LocatorRouteTests
     public void Ctor_WholeModuleSearchAfterTheFirstStep_Throws()
     {
         Assert.That(
-            () => new LocatorRoute("release", new ReadStep(), new SearchStep(Scan.For("90"))),
+            () => new LocatorRoute("release", new ReadStep(), new SearchStep(Scan.Create("90"))),
             Throws.ArgumentException.With.Message.Contains("has to be the first step"));
     }
 
@@ -187,7 +201,7 @@ public class LocatorRouteTests
     public void SearchStep_ScanWithAResolver_Throws()
     {
         Assert.That(
-            () => new SearchStep(Scan.For("90").OnFound(AddressResolver.Offset(1))),
+            () => new SearchStep(Scan.Create("90").WithResolver(AddressResolver.FromOffset(1))),
             Throws.ArgumentException.With.Message.Contains("resolver"));
     }
 
@@ -195,7 +209,7 @@ public class LocatorRouteTests
     [Test]
     public void ToString_Route_ListsTheSteps()
     {
-        LocatorRoute route = new("release", new ExportStep("Beta", 3), new SearchStep(Scan.Backward(0x10).For("90"), -2), new ReadStep());
+        LocatorRoute route = new("release", new ExportStep("Beta", 3), new SearchStep(ScanWindow.Backward(0x10).Create("90"), -2), new ReadStep());
 
         Assert.That(route.ToString(), Is.EqualTo("release: export 'Beta' plus 0x3 then backward 0x10 for '90' minus 0x2 then read pointer"));
     }

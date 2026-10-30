@@ -12,62 +12,62 @@ public class ScanStepTests
 
     // A Forward step searches ahead of the previous match.
     [Test]
-    public void Range_AForwardStep_SearchesAheadOfTheMatch()
+    public void ScanRange_AForwardStep_SearchesAheadOfTheMatch()
     {
         BufferMemory memory = new(_base, [0x99, 0xAB, 0xCD, 0x00, 0x99], MemoryLayout.X64);
 
-        var found = Scan.Range(memory, memory.Range, Scan.For("AB CD"), Scan.Forward(0x10).For("99"));
+        var found = Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Forward(0x10).Create("99"));
 
         Assert.That(found, Is.EqualTo([_base + 4]));
     }
 
     // A Forward window that stops short of the pattern finds nothing.
     [Test]
-    public void Range_AShortForwardWindow_FindsNothing()
+    public void ScanRange_AShortForwardWindow_FindsNothing()
     {
         BufferMemory memory = new(_base, [0xAB, 0xCD, 0x00, 0x99], MemoryLayout.X64);
 
-        var found = Scan.Range(memory, memory.Range, Scan.For("AB CD"), Scan.Forward(3).For("99"));
+        var found = Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Forward(3).Create("99"));
 
         Assert.That(found, Is.Empty);
     }
 
     // A Backward step searches behind the previous match.
     [Test]
-    public void Range_ABackwardStep_SearchesBehindTheMatch()
+    public void ScanRange_ABackwardStep_SearchesBehindTheMatch()
     {
         BufferMemory memory = new(_base, [0x99, 0x00, 0xAB, 0xCD, 0x99], MemoryLayout.X64);
 
-        var found = Scan.Range(memory, memory.Range, Scan.For("AB CD"), Scan.Backward(0x10).For("99"));
+        var found = Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Backward(0x10).Create("99"));
 
         Assert.That(found, Is.EqualTo([_base]));
     }
 
     // A Backward window that starts after the pattern finds nothing.
     [Test]
-    public void Range_AShortBackwardWindow_FindsNothing()
+    public void ScanRange_AShortBackwardWindow_FindsNothing()
     {
         BufferMemory memory = new(_base, [0x99, 0x00, 0xAB, 0xCD], MemoryLayout.X64);
 
-        var found = Scan.Range(memory, memory.Range, Scan.For("AB CD"), Scan.Backward(1).For("99"));
+        var found = Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Backward(1).Create("99"));
 
         Assert.That(found, Is.Empty);
     }
 
     // The next step searches around every match of a step.
     [Test]
-    public void Range_AStepMatchingTwice_CarriesBothMatchesForward()
+    public void ScanRange_AStepMatchingTwice_SearchesAroundBothMatches()
     {
         BufferMemory memory = new(_base, [0xAB, 0xCD, 0x11, 0xAB, 0xCD, 0x11], MemoryLayout.X64);
 
-        var found = Scan.Range(memory, memory.Range, Scan.For("AB CD"), Scan.Forward(3).For("11"));
+        var found = Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Forward(3).Create("11"));
 
         Assert.That(found, Is.EqualTo([_base + 2, _base + 5]));
     }
 
     // A chain finds a call, follows its displacement and resolves the RIP-relative load at its target.
     [Test]
-    public void Range_AChainOfSteps_ResolvesTheGlobal()
+    public void ScanRange_AChainOfSteps_ResolvesTheGlobal()
     {
         byte[] bytes = new byte[0x40];
 
@@ -83,33 +83,33 @@ public class ScanStepTests
 
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        var found = Scan.Range(
+        var found = Scan.ScanRange(
             memory,
             memory.Range,
-            Scan.For("E8 ?? ?? ?? ??").OnFound(AddressResolver.Displacement(1)),
-            Scan.Forward(0x10).For("48 8B 05").OnFound(AddressResolver.Relative(3)));
+            Scan.Create("E8 ?? ?? ?? ??").WithResolver(AddressResolver.FromDisplacement(1)),
+            ScanWindow.Forward(0x10).Create("48 8B 05").WithResolver(AddressResolver.FromRelative(3)));
 
         Assert.That(found, Is.EqualTo([_base + 0x127]));
     }
 
     // A resolver that leaves the range drops that match instead of ending the scan.
     [Test]
-    public void Range_AResolverLeavingTheRange_DropsThatMatch()
+    public void ScanRange_AResolverLeavingTheRange_DropsThatMatch()
     {
         BufferMemory memory = new(_base, [0xAB, 0xAB, 0x99], MemoryLayout.X64);
 
-        var found = Scan.Range(
+        var found = Scan.ScanRange(
             memory,
             memory.Range,
-            Scan.For("AB").OnFound(AddressResolver.Offset(2)),
-            Scan.Forward(1).For("99"));
+            Scan.Create("AB").WithResolver(AddressResolver.FromOffset(2)),
+            ScanWindow.Forward(1).Create("99"));
 
         Assert.That(found, Is.EqualTo([_base + 2]));
     }
 
     // A window larger than its stack space still returns every match inside it in order.
     [Test]
-    public void Range_ALargeForwardWindow_ReturnsEachMatch()
+    public void ScanRange_ALargeForwardWindow_ReturnsEachMatch()
     {
         byte[] bytes = new byte[0x400];
         bytes[0x000] = 0xAB;
@@ -118,20 +118,31 @@ public class ScanStepTests
         bytes[0x3FF] = 0x99;
         BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
 
-        var found = Scan.Range(memory, memory.Range, Scan.For("AB"), Scan.Forward(0x3FF).For("99"));
+        var found = Scan.ScanRange(memory, memory.Range, Scan.Create("AB"), ScanWindow.Forward(0x3FF).Create("99"));
 
         Assert.That(found, Is.EqualTo([_base + 0x10, _base + 0x300]));
     }
 
+    // A window larger than the range is clamped to the range end, so the last byte is still found.
+    [Test]
+    public void ScanRange_AWindowLargerThanTheRange_ClampsToTheRangeEnd()
+    {
+        BufferMemory memory = new(_base, [0xAB, 0x00, 0x00, 0x99], MemoryLayout.X64);
+
+        var found = Scan.ScanRange(memory, memory.Range, Scan.Create("AB"), ScanWindow.Forward(int.MaxValue).Create("99"));
+
+        Assert.That(found, Is.EqualTo([_base + 3]));
+    }
+
     // A window with 2 matches is read once for both of them.
     [Test]
-    public void Range_AWindowWithTwoMatches_ReadsTheWindowOnce()
+    public void ScanRange_AWindowWithTwoMatches_ReadsTheWindowOnce()
     {
         BufferMemory inner = new(_base, [0xAB, 0x99, 0x00, 0x99], MemoryLayout.X64);
         CountingMemory memory = new(inner);
-        var window = Scan.Forward(4).For("99");
+        var window = ScanWindow.Forward(4).Create("99");
 
-        var found = Scan.Range(memory, inner.Range, window).ToList();
+        var found = Scan.ScanRange(memory, inner.Range, window).ToList();
 
         using (Assert.EnterMultipleScope())
         {
@@ -142,11 +153,11 @@ public class ScanStepTests
 
     // A chain with no steps throws.
     [Test]
-    public void Range_NoSteps_ThrowsArgumentException()
+    public void ScanRange_NoSteps_ThrowsArgumentException()
     {
         BufferMemory memory = new(_base, [], MemoryLayout.X64);
 
-        Assert.Throws<ArgumentException>(() => Scan.Range(memory, memory.Range, []));
+        Assert.Throws<ArgumentException>(() => Scan.ScanRange(memory, memory.Range, []));
     }
 
     private sealed class CountingMemory(

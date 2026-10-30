@@ -47,7 +47,7 @@ public class LocatorJsonTests
             locator.Routes["SceneManager_Get_Custom_PropSceneCount"].Steps,
             Is.EqualTo(new RouteStep[]
             {
-                new SearchStep(Scan.For("48 8B 05 ?? ?? ?? ?? 8B 40 18 C3"), 3),
+                new SearchStep(Scan.Create("48 8B 05 ?? ?? ?? ?? 8B 40 18 C3"), 3),
                 new ReadStep(ReadKind.Global),
             }));
     }
@@ -74,7 +74,7 @@ public class LocatorJsonTests
                 Is.EqualTo(new RouteStep[]
                 {
                     new ExportStep("mono_assembly_foreach"),
-                    new SearchStep(Scan.Forward(0x100).For("48 8B 0D"), 3),
+                    new SearchStep(ScanWindow.Forward(0x100).Create("48 8B 0D"), 3),
                     new ReadStep(ReadKind.Global),
                 }));
             Assert.That(
@@ -104,13 +104,13 @@ public class LocatorJsonTests
     {
         MemoryLocator locator = new(new LocatorRoute(
             "release",
-            new SearchStep(Scan.Backward(0x40).For("48 8b ?5"), -2),
-            new ReadStep(ReadKind.Branch, Size: 5),
+            new SearchStep(ScanWindow.Backward(0x40).Create("48 8b ?5"), -2),
+            new ReadStep(ReadKind.Displacement, Size: 5),
             new ReadStep(ReadKind.Global)));
 
         Assert.That(
             JsonSerializer.Serialize(locator),
-            Is.EqualTo("""{"release":[{"backward":"48 8B ?5","within":"0x40","offset":-2},{"read":"branch","size":"0x5"},{"read":"global"}]}"""));
+            Is.EqualTo("""{"release":[{"backward":"48 8B ?5","within":"0x40","offset":-2},{"read":"displacement","size":"0x5"},{"read":"global"}]}"""));
     }
 
     // A decimal number reads the same as hex.
@@ -136,8 +136,9 @@ public class LocatorJsonTests
     [TestCase("""{ "a": "48" }""", "array of steps")]
     [TestCase("""{ "a": [ { "export": "x", "read": "pointer" } ] }""", "2 steps")]
     [TestCase("""{ "a": [ { "within": "0x40" } ] }""", "needs 1 key")]
-    [TestCase("""{ "a": [ { "read": "pointer", "size": 8 } ] }""", "Only 'global' and 'branch'")]
-    [TestCase("""{ "a": [ { "read": "absolute" } ] }""", "global, branch or pointer")]
+    [TestCase("""{ "a": [ { "read": "pointer", "size": 8 } ] }""", "Only 'global' and 'displacement'")]
+    [TestCase("""{ "a": [ { "read": "absolute" } ] }""", "global, displacement or pointer")]
+    [TestCase("""{ "a": [ { "read": "branch" } ] }""", "global, displacement or pointer")]
     [TestCase("""{ "a": [ { "forward": "48 8B 0", "within": 64 } ] }""", "isn't a signature")]
     [TestCase("""{ "a": [ { "forward": [], "within": 64 } ] }""", "empty array")]
     [TestCase("""{ "a": [ { "forward": "48", "within": 0 } ] }""", "positive size")]

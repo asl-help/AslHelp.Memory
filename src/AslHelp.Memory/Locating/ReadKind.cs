@@ -8,16 +8,17 @@ namespace AslHelp.Memory.Locating;
 public enum ReadKind
 {
     /// <summary>
-    ///     The bytes are an operand that references a global, as <see cref="Scanning.AddressResolverExtensions"/>
-    ///     reads it with <c>AddressResolver.Relative</c>.
+    ///     The bytes are an operand that references a global, as
+    ///     <see cref="Scanning.AddressResolverExtensions"/> reads it with <c>AddressResolver.FromRelative</c>. At a
+    ///     pointer size of 4 the operand is the absolute address.
     /// </summary>
     Global,
 
     /// <summary>
-    ///     The bytes are the signed 32-bit distance of a near call or jump, as <c>AddressResolver.Displacement</c>
+    ///     The bytes are the signed 32-bit distance of a near call or jump, as <c>AddressResolver.FromDisplacement</c>
     ///     reads it.
     /// </summary>
-    Branch,
+    Displacement,
 
     /// <summary>
     ///     The bytes are a pointer of the target's pointer size.

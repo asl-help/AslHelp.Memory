@@ -45,9 +45,9 @@ public class LivePatchEdgeTests
     {
         CaptureLayout layout = new(
         [
-            new(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 8),
-            new(CaptureSource.Stack, 0, CaptureLayout.PayloadAt + 8, 8),
-            new(CaptureSource.FloatRegister, 0, CaptureLayout.PayloadAt + 16, 8),
+            new(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 8),
+            new(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset + 8, 8),
+            new(CaptureSource.FloatRegister, 0, CaptureLayout.PayloadOffset + 16, 8),
         ]);
 
         using var session = new PatchSession(_child.Memory, _writer);
@@ -61,7 +61,7 @@ public class LivePatchEdgeTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(rose, Is.True);
-            Assert.That(patch.Captures, Is.True);
+            Assert.That(patch.HasCaptures, Is.True);
             Assert.That(patch.TryReadCall(_child.Memory, payload).Unwrap(), Is.True);
             Assert.That(_child.Process.HasExited, Is.False);
         }
@@ -276,7 +276,7 @@ public class LivePatchEdgeTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(patch.WasAdopted, Is.False);
+            Assert.That(patch.IsAdopted, Is.False);
             Assert.That(_child.Memory.Read<byte>(_child.Tick).Unwrap(), Is.EqualTo((byte)0xE9));
             Assert.That(_child.WaitForCount(patch, first, _riseTimeout), Is.True);
         }

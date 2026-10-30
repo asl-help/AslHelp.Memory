@@ -35,7 +35,7 @@ public static class AddressResolverExtensions
         /// <returns>
         ///     The resolver.
         /// </returns>
-        public static AddressResolver Relative(int displacementOffset, int instructionSize = 4)
+        public static AddressResolver FromRelative(int displacementOffset, int instructionSize = 4)
         {
             return (reader, match) =>
             {
@@ -61,7 +61,7 @@ public static class AddressResolverExtensions
         /// <returns>
         ///     The resolver.
         /// </returns>
-        public static AddressResolver Displacement(int displacementOffset, int instructionSize = 4)
+        public static AddressResolver FromDisplacement(int displacementOffset, int instructionSize = 4)
         {
             return (reader, match) =>
             {
@@ -78,7 +78,7 @@ public static class AddressResolverExtensions
         /// <returns>
         ///     The resolver.
         /// </returns>
-        public static AddressResolver Offset(long distance)
+        public static AddressResolver FromOffset(long distance)
         {
             return (_, match) => match + distance;
         }

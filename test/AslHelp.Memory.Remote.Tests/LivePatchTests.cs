@@ -54,7 +54,7 @@ public class LivePatchTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(_child.Memory.Read<byte>(_child.Tick).Unwrap(), Is.EqualTo((byte)0xE9));
-            Assert.That(patch.WasAdopted, Is.False);
+            Assert.That(patch.IsAdopted, Is.False);
             Assert.That(_child.WaitForCount(patch, first, _riseTimeout), Is.True);
         }
     }
@@ -93,7 +93,7 @@ public class LivePatchTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(adopted.WasAdopted, Is.True);
+            Assert.That(adopted.IsAdopted, Is.True);
             Assert.That(adopted.Slot, Is.EqualTo(installed.Slot));
             Assert.That(keptAfterOther, Is.True);
             Assert.That(_child.Memory.Read<byte>(installed.Slot).IsOk, Is.False);

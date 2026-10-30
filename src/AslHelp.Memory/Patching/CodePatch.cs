@@ -24,20 +24,20 @@ public sealed class CodePatch
     private const uint Marker = 0x504C5341;
     private const ushort Version = 2;
 
-    private const int RecordPointerAt = 0x00;
-    private const int MarkerAt = 0x08;
-    private const int VersionAt = 0x0C;
-    private const int PatchLengthAt = 0x0E;
-    private const int StolenLengthAt = 0x0F;
-    private const int EntryAt = 0x10;
-    private const int OriginalAt = 0x18;
-    private const int StubAt = 0x30;
+    private const int RecordPointerOffset = 0x00;
+    private const int MarkerOffset = 0x08;
+    private const int VersionOffset = 0x0C;
+    private const int PatchLengthOffset = 0x0E;
+    private const int StolenLengthOffset = 0x0F;
+    private const int EntryOffset = 0x10;
+    private const int OriginalOffset = 0x18;
+    private const int StubOffset = 0x30;
 
-    // The record's header words. The payload begins past them at `CaptureLayout.PayloadAt`.
-    private const int CountAt = 0x00;
-    private const int SequenceAt = 0x08;
+    // The record's header words. The payload begins past them at `CaptureLayout.PayloadOffset`.
+    private const int CountOffset = 0x00;
+    private const int SequenceOffset = 0x08;
 
-    private const int MaxStolen = StubAt - OriginalAt;
+    private const int MaxStolen = StubOffset - OriginalOffset;
     private const int JumpLength = 5;
 
     // Fits the header, the displaced bytes and the longest stub a layout composes.
@@ -48,9 +48,9 @@ public sealed class CodePatch
         Entry = entry;
         Slot = slot;
         Record = record;
-        Original = original;
-        WasAdopted = adopted;
-        Captures = captures;
+        OriginalBytes = original;
+        IsAdopted = adopted;
+        HasCaptures = captures;
     }
 
     /// <summary>
@@ -76,7 +76,7 @@ public sealed class CodePatch
     ///     the memory under it would take a live target down, so a caller that cleans up has to know which it
     ///     has.
     /// </remarks>
-    public bool WasAdopted { get; }
+    public bool IsAdopted { get; }
 
     /// <summary>
     ///     Gets a value indicating whether the stub standing at this entry is one this run wrote a capture into.
@@ -86,12 +86,12 @@ public sealed class CodePatch
     ///     whole capture of nothing rather than as an absent one. An adopted patch is the same answer for a different
     ///     reason: it captures whatever its own writer asked for. The page doesn't record what that was.
     /// </remarks>
-    public bool Captures { get; }
+    public bool HasCaptures { get; }
 
     /// <summary>
     ///     Gets the bytes the jump displaced.
     /// </summary>
-    internal byte[] Original { get; }
+    internal byte[] OriginalBytes { get; }
 
     /// <summary>
     ///     Recognizes a patch this library already installed at <paramref name="entry"/>.
@@ -116,7 +116,7 @@ public sealed class CodePatch
         int pointerSize = memory.Layout.PointerSize;
         if (pointerSize is not (4 or 8))
         {
-            return PlanError.NotIntel(pointerSize);
+            return PlanError.UnsupportedArchitecture(pointerSize);
         }
 
         if (!memory.ReadArray<byte>(entry, JumpLength).TryUnwrap(out byte[]? head))
@@ -130,7 +130,7 @@ public sealed class CodePatch
         }
 
         int displacement = BitConverter.ToInt32(head, 1);
-        var slot = entry + JumpLength + displacement - StubAt;
+        var slot = entry + JumpLength + displacement - StubOffset;
 
         // Wraps at 4 GB like the jump itself, because a 32-bit target computes the jump in 32 bits.
         if (pointerSize == 4)
@@ -138,38 +138,38 @@ public sealed class CodePatch
             slot = (Address)(slot.Value & uint.MaxValue);
         }
 
-        if (!memory.ReadArray<byte>(slot, StubAt).TryUnwrap(out byte[]? header)
-            || BitConverter.ToUInt32(header, MarkerAt) != Marker)
+        if (!memory.ReadArray<byte>(slot, StubOffset).TryUnwrap(out byte[]? header)
+            || BitConverter.ToUInt32(header, MarkerOffset) != Marker)
         {
-            return AdoptError.NotOurs();
+            return AdoptError.ForeignPatch();
         }
 
-        if (BitConverter.ToUInt16(header, VersionAt) != Version)
+        if (BitConverter.ToUInt16(header, VersionOffset) != Version)
         {
             return AdoptError.AnotherVersion();
         }
 
-        if ((Address)BitConverter.ToUInt64(header, EntryAt) != entry)
+        if ((Address)BitConverter.ToUInt64(header, EntryOffset) != entry)
         {
-            return AdoptError.ClaimsAnotherEntry();
+            return AdoptError.EntryMismatch();
         }
 
-        if (header[PatchLengthAt] != JumpLength)
+        if (header[PatchLengthOffset] != JumpLength)
         {
-            return AdoptError.UnexpectedPatchLength(header[PatchLengthAt]);
+            return AdoptError.UnexpectedPatchLength(header[PatchLengthOffset]);
         }
 
-        int stolen = header[StolenLengthAt];
+        int stolen = header[StolenLengthOffset];
 
         if (stolen is < JumpLength or > MaxStolen)
         {
-            return AdoptError.ImplausibleStolenLength(stolen);
+            return AdoptError.StolenLengthOutOfRange(stolen);
         }
 
         byte[] original = new byte[stolen];
-        Buffer.BlockCopy(header, OriginalAt, original, 0, stolen);
+        Buffer.BlockCopy(header, OriginalOffset, original, 0, stolen);
 
-        var record = (Address)BitConverter.ToUInt64(header, RecordPointerAt);
+        var record = (Address)BitConverter.ToUInt64(header, RecordPointerOffset);
 
         return new CodePatch(entry, slot, record, original, adopted: true, captures: false);
     }
@@ -197,11 +197,11 @@ public sealed class CodePatch
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="layout"/> is <see langword="null"/>.
     /// </exception>
-    internal static bool Fits(CaptureLayout layout, IStubAssembler assembler)
+    internal static bool StubFitsSlot(CaptureLayout layout, IStubAssembler assembler)
     {
         ArgumentNullException.ThrowIfNull(layout);
 
-        return Compose(Address.Zero, Address.Zero, Address.Zero, new byte[MaxStolen], layout, assembler).IsOk;
+        return Assemble(Address.Zero, Address.Zero, Address.Zero, new byte[MaxStolen], layout, assembler).IsOk;
     }
 
     /// <summary>
@@ -218,7 +218,7 @@ public sealed class CodePatch
     {
         ArgumentNullException.ThrowIfNull(memory);
 
-        return memory.Read<ulong>(Record + CountAt);
+        return memory.Read<ulong>(Record + CountOffset);
     }
 
     /// <summary>
@@ -242,7 +242,7 @@ public sealed class CodePatch
     ///     </para>
     /// </remarks>
     /// <param name="memory">The target's memory.</param>
-    /// <param name="into">Where the payload goes, whose length is how much of it to read.</param>
+    /// <param name="destination">Where the payload goes, whose length is how much of it to read.</param>
     /// <returns>
     ///     <see langword="true"/> when a whole payload was caught between 2 calls, <see langword="false"/> when the
     ///     target was still writing on every attempt, otherwise a failed result, which is also what a patch nothing
@@ -252,29 +252,29 @@ public sealed class CodePatch
     ///     <paramref name="memory"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
-    ///     <paramref name="into"/> is longer than a record's payload.
+    ///     <paramref name="destination"/> is longer than a record's payload.
     /// </exception>
-    public Result<bool> TryReadCall(IMemoryReader memory, Span<byte> into)
+    public Result<bool> TryReadCall(IMemoryReader memory, Span<byte> destination)
     {
         ArgumentNullException.ThrowIfNull(memory);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(into.Length, CaptureLayout.PayloadSize, nameof(into));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(destination.Length, CaptureLayout.PayloadSize, nameof(destination));
 
         // A record nothing captures into is all zeroes. Its sequence reads even and equal. The protocol below
         // would call that a whole capture of null.
-        if (WasAdopted)
+        if (IsAdopted)
         {
             return AdoptError.UnknownLayout(Entry);
         }
 
-        if (!Captures)
+        if (!HasCaptures)
         {
-            return AdoptError.CapturesNothing(Entry);
+            return AdoptError.NoCaptures(Entry);
         }
 
         const int ReadAttempts = 8;
         for (int attempt = 0; attempt < ReadAttempts; attempt++)
         {
-            if (!memory.Read<ulong>(Record + SequenceAt).TryUnwrap(out ulong before, out var beforeError))
+            if (!memory.Read<ulong>(Record + SequenceOffset).TryUnwrap(out ulong before, out var beforeError))
             {
                 return beforeError;
             }
@@ -284,12 +284,12 @@ public sealed class CodePatch
                 continue;
             }
 
-            if (memory.Read(Record + CaptureLayout.PayloadAt, into).TryUnwrapErr(out var payloadError))
+            if (memory.Read(Record + CaptureLayout.PayloadOffset, destination).TryUnwrapErr(out var payloadError))
             {
                 return payloadError;
             }
 
-            if (!memory.Read<ulong>(Record + SequenceAt).TryUnwrap(out ulong after, out var afterError))
+            if (!memory.Read<ulong>(Record + SequenceOffset).TryUnwrap(out ulong after, out var afterError))
             {
                 return afterError;
             }
@@ -317,7 +317,7 @@ public sealed class CodePatch
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="memory"/> or <paramref name="layout"/> is <see langword="null"/>.
     /// </exception>
-    internal static Result<PatchPlan> Plan(IMemoryReader memory, Address entry, CaptureLayout layout)
+    internal static Result<PatchPlan> CreatePlan(IMemoryReader memory, Address entry, CaptureLayout layout)
     {
         ArgumentNullException.ThrowIfNull(memory);
         ArgumentNullException.ThrowIfNull(layout);
@@ -326,7 +326,7 @@ public sealed class CodePatch
         // the target cannot observe half of.
         if ((entry.Value & 7) > 8 - JumpLength)
         {
-            return PlanError.StraddlesAWord(entry);
+            return PlanError.EntryStraddlesWord(entry);
         }
 
         if (!memory.ReadArray<byte>(entry, MaxStolen).TryUnwrap(out byte[]? prologue))
@@ -337,14 +337,14 @@ public sealed class CodePatch
         int pointerSize = memory.Layout.PointerSize;
         if (pointerSize is not (4 or 8))
         {
-            return PlanError.NotIntel(pointerSize);
+            return PlanError.UnsupportedArchitecture(pointerSize);
         }
 
         bool is64Bit = pointerSize == 8;
 
         if (!InstructionLength.TryStealLength(prologue, is64Bit, JumpLength, out int stolen, out bool relative))
         {
-            return PlanError.UnrecognisedPrologue(entry);
+            return PlanError.UnrecognizedPrologue(entry);
         }
 
         if (relative)
@@ -357,9 +357,9 @@ public sealed class CodePatch
 
         // Composes a throwaway stub against the entry itself, because every displacement is 4 bytes wherever it points
         // and the place of the stub and its record changes no length.
-        var assembler = StubAssembler.For(is64Bit);
+        var assembler = StubAssembler.Create(is64Bit);
 
-        if (Compose(entry, entry, entry, original, layout, assembler).TryUnwrapErr(out var shapeError))
+        if (Assemble(entry, entry, entry, original, layout, assembler).TryUnwrapErr(out var shapeError))
         {
             return shapeError;
         }
@@ -402,13 +402,13 @@ public sealed class CodePatch
             return InstallError.PoolFull(pool.Base);
         }
 
-        if (!Compose(entry, slot, record, plan.Original, plan.Layout, plan.Assembler)
-            .TryUnwrap(out byte[]? contents, out var composeError))
+        if (!Assemble(entry, slot, record, plan.Original, plan.Layout, plan.Assembler)
+            .TryUnwrap(out byte[]? contents, out var assembleError))
         {
             // Returns the slot, because nothing was written into it yet.
             pool.Return(slot);
 
-            return composeError;
+            return assembleError;
         }
 
         // Clears the record before the stub can reach it, because a returned slot's record may be left odd and an odd
@@ -471,10 +471,10 @@ public sealed class CodePatch
         ArgumentNullException.ThrowIfNull(memory);
         ArgumentNullException.ThrowIfNull(writer);
 
-        return WriteWord(memory, writer, Entry, Original.AsSpan(0, JumpLength), out _);
+        return WriteWord(memory, writer, Entry, OriginalBytes.AsSpan(0, JumpLength), out _);
     }
 
-    internal static Result<byte[]> Compose(
+    internal static Result<byte[]> Assemble(
         Address entry,
         Address slot,
         Address record,
@@ -482,48 +482,48 @@ public sealed class CodePatch
         CaptureLayout layout,
         IStubAssembler assembler)
     {
-        byte[] header = new byte[StubAt];
+        byte[] header = new byte[StubOffset];
 
-        BitConverter.GetBytes(record.Value).CopyTo(header, RecordPointerAt);
-        BitConverter.GetBytes(Marker).CopyTo(header, MarkerAt);
-        BitConverter.GetBytes(Version).CopyTo(header, VersionAt);
-        header[PatchLengthAt] = JumpLength;
-        header[StolenLengthAt] = (byte)original.Length;
-        BitConverter.GetBytes(entry.Value).CopyTo(header, EntryAt);
-        original.CopyTo(header, OriginalAt);
+        BitConverter.GetBytes(record.Value).CopyTo(header, RecordPointerOffset);
+        BitConverter.GetBytes(Marker).CopyTo(header, MarkerOffset);
+        BitConverter.GetBytes(Version).CopyTo(header, VersionOffset);
+        header[PatchLengthOffset] = JumpLength;
+        header[StolenLengthOffset] = (byte)original.Length;
+        BitConverter.GetBytes(entry.Value).CopyTo(header, EntryOffset);
+        original.CopyTo(header, OriginalOffset);
 
-        CodeWriter code = new(slot + StubAt);
+        CodeWriter code = new(slot + StubOffset);
 
         // Counts the call before capturing it, so a payload the reader catches whole belongs to a call the count
         // already includes, whichever of the 2 the reader reads first.
-        assembler.Increment(code, record + CountAt);
+        assembler.EmitIncrement(code, record + CountOffset);
 
         // The stub claims the sequence word before storing and steps it on after (`TryReadCall` has the protocol). A
         // count alone would let 2 threads arriving together both store on an even word. The claim sends the second
         // thread past the stores to the resume.
         if (!layout.IsEmpty)
         {
-            assembler.Claim(code, record + SequenceAt);
+            assembler.EmitClaim(code, record + SequenceOffset);
 
-            int skip = assembler.SkipWhenClaimed(code);
+            int skip = assembler.BeginSkip(code);
 
             if (layout.Emit(code, record, assembler).TryUnwrapErr(out var emitError))
             {
                 return emitError;
             }
 
-            assembler.Increment(code, record + SequenceAt);
-            assembler.ResolveSkip(code, skip);
+            assembler.EmitIncrement(code, record + SequenceOffset);
+            assembler.EndSkip(code, skip);
         }
 
-        assembler.Resume(code, original, entry + original.Length);
+        assembler.EmitResume(code, original, entry + original.Length);
 
-        if (StubAt + code.Length > SlotSize)
+        if (StubOffset + code.Length > SlotSize)
         {
-            return PlanError.StubTooLarge(entry, code.Length, SlotSize - StubAt);
+            return PlanError.StubTooLarge(entry, code.Length, SlotSize - StubOffset);
         }
 
-        byte[] composed = [.. header, .. code.Written];
+        byte[] composed = [.. header, .. code.WrittenSpan];
 
         return composed;
     }
@@ -537,7 +537,7 @@ public sealed class CodePatch
     {
         offered = false;
 
-        long displacement = slot + StubAt - (entry + JumpLength);
+        long displacement = slot + StubOffset - (entry + JumpLength);
 
         if (displacement is > int.MaxValue or < int.MinValue)
         {
@@ -569,7 +569,7 @@ public sealed class CodePatch
         // store can't put them back.
         if (at + patch.Length > 8)
         {
-            return PlanError.StraddlesAWord(entry);
+            return PlanError.EntryStraddlesWord(entry);
         }
 
         if (!writer.SuspendThreads().TryUnwrap(out var suspension, out var suspendError))
