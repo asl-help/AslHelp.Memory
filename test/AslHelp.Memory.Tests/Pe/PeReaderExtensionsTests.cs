@@ -25,10 +25,10 @@ public class PeReaderExtensionsTests
         [Values] bool is64Bit,
         [ValueSource(nameof(_sorted))] string name)
     {
-        var image = PeImage.Build(is64Bit, _sorted);
+        var image = PeImage.Create(is64Bit, _sorted);
         var (memory, module) = Load(image);
 
-        Assert.That(memory.GetExport(module, name).Unwrap(), Is.EqualTo(_base + image.FunctionRva(name)));
+        Assert.That(memory.GetExport(module, name).Unwrap(), Is.EqualTo(_base + image.GetFunctionRva(name)));
     }
 
     // A name that isn't exported returns an error that names it.
@@ -39,7 +39,7 @@ public class PeReaderExtensionsTests
     [TestCase("zzz")]
     public void GetExport_AMissingName_ReturnsAnError(string name)
     {
-        var (memory, module) = Load(PeImage.Build(true, _sorted));
+        var (memory, module) = Load(PeImage.Create(true, _sorted));
 
         var export = memory.GetExport(module, name);
 
@@ -54,7 +54,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetExport_ANonAsciiName_ReturnsAnError()
     {
-        var (memory, module) = Load(PeImage.Build(true, _sorted));
+        var (memory, module) = Load(PeImage.Create(true, _sorted));
 
         Assert.That(memory.GetExport(module, "Bëta").IsErr, Is.True);
     }
@@ -63,17 +63,17 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetExport_AnUnsortedTable_FindsTheName()
     {
-        var image = PeImage.Build(false, ["Zeta", "Alpha", "Gamma"]);
+        var image = PeImage.Create(false, ["Zeta", "Alpha", "Gamma"]);
         var (memory, module) = Load(image);
 
-        Assert.That(memory.GetExport(module, "Zeta").Unwrap(), Is.EqualTo(_base + image.FunctionRva("Zeta")));
+        Assert.That(memory.GetExport(module, "Zeta").Unwrap(), Is.EqualTo(_base + image.GetFunctionRva("Zeta")));
     }
 
     // An export whose function points into the export directory is a forwarder and returns an error.
     [Test]
     public void GetExport_AForwardedExport_ReturnsAnError()
     {
-        var (memory, module) = Load(PeImage.Build(true, _sorted, forwarded: "Delta"));
+        var (memory, module) = Load(PeImage.Create(true, _sorted, forwarded: "Delta"));
 
         var export = memory.GetExport(module, "Delta");
 
@@ -88,7 +88,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetExport_NoExportDirectory_ReturnsAnError()
     {
-        var image = PeImage.Build(
+        var image = PeImage.Create(
             true,
             _sorted,
             configure: file => file.OptionalHeader.SetDataDirectory(DataDirectoryIndex.ExportDirectory, default(DataDirectory)));
@@ -101,7 +101,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetExport_ABadDosSignature_ReturnsAnError()
     {
-        var image = PeImage.Build(true, _sorted);
+        var image = PeImage.Create(true, _sorted);
         image.Bytes[0] = (byte)'X';
         var (memory, module) = Load(image);
 
@@ -118,7 +118,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetExport_ABadNtSignature_ReturnsAnError()
     {
-        var image = PeImage.Build(false, _sorted);
+        var image = PeImage.Create(false, _sorted);
         image.Bytes[image.File.DosHeader.NextHeaderOffset] = (byte)'X';
         var (memory, module) = Load(image);
 
@@ -135,7 +135,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetDataDirectory_AnUnknownMagic_ReturnsAnError()
     {
-        var image = PeImage.Build(true, _sorted);
+        var image = PeImage.Create(true, _sorted);
         image.Bytes[image.File.DosHeader.NextHeaderOffset + MagicOffset] = 0x07;
         var (memory, module) = Load(image);
 
@@ -146,7 +146,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetDataDirectory_AnNtOffsetPastTheImage_ReturnsAnError()
     {
-        var image = PeImage.Build(true, _sorted);
+        var image = PeImage.Create(true, _sorted);
         BinaryPrimitives.WriteInt32LittleEndian(image.Bytes.AsSpan(LfanewOffset), image.Bytes.Length);
         var (memory, module) = Load(image);
 
@@ -157,7 +157,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetDataDirectory_BothFormats_MatchesTheWrittenEntries([Values] bool is64Bit)
     {
-        var image = PeImage.Build(is64Bit, _sorted);
+        var image = PeImage.Create(is64Bit, _sorted);
         var (memory, module) = Load(image);
 
         var export = image.File.OptionalHeader.GetDataDirectory(DataDirectoryIndex.ExportDirectory);
@@ -178,7 +178,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetDataDirectory_PastTheDirectoryCount_ReturnsAnEmptyEntry()
     {
-        var image = PeImage.Build(true, _sorted, configure: file => file.OptionalHeader.NumberOfRvaAndSizes = 1);
+        var image = PeImage.Create(true, _sorted, configure: file => file.OptionalHeader.NumberOfRvaAndSizes = 1);
         var (memory, module) = Load(image);
 
         Assert.That(memory.GetDataDirectory(module, PeDirectory.Debug).Unwrap(), Is.Default);
@@ -189,7 +189,7 @@ public class PeReaderExtensionsTests
     [Test]
     public void GetExport_AFoundName_DoesNotAllocate()
     {
-        var (memory, module) = Load(PeImage.Build(true, _sorted));
+        var (memory, module) = Load(PeImage.Create(true, _sorted));
         _ = memory.GetExport(module, "Gamma");
 
         long before = GC.GetAllocatedBytesForCurrentThread();

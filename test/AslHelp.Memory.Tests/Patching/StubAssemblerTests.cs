@@ -69,7 +69,7 @@ public class StubAssemblerTests
         assembler.EndSkip(code, skip);
 
         var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.WrittenSpan.ToArray()));
-        decoder.IP = CodeStart(code);
+        decoder.IP = GetCodeStart(code);
         decoder.Decode(out var claim);
         decoder.Decode(out var jump);
 
@@ -96,7 +96,7 @@ public class StubAssemblerTests
         assembler.EmitResume(code, original, resumeAddress);
 
         var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.WrittenSpan[original.Length..].ToArray()));
-        decoder.IP = CodeStart(code) + (ulong)original.Length;
+        decoder.IP = GetCodeStart(code) + (ulong)original.Length;
         decoder.Decode(out var jump);
 
         using (Assert.EnterMultipleScope())
@@ -141,7 +141,7 @@ public class StubAssemblerTests
         var result = assembler.EmitStackCapture(code, (is64Bit ? _record : new Address(Record32)) + 0x18, index, is64Bit ? 8 : 4, indirect: false);
 
         var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.WrittenSpan.ToArray()));
-        decoder.IP = CodeStart(code);
+        decoder.IP = GetCodeStart(code);
         decoder.Decode(out var push);
         decoder.Decode(out var load);
 
@@ -218,7 +218,7 @@ public class StubAssemblerTests
     private static Instruction Decode(CodeWriter code, int bitness)
     {
         var decoder = Decoder.Create(bitness, new ByteArrayCodeReader(code.WrittenSpan.ToArray()));
-        decoder.IP = CodeStart(code);
+        decoder.IP = GetCodeStart(code);
         decoder.Decode(out var instruction);
 
         Assert.That(instruction.IsInvalid, Is.False, instruction.ToString());
@@ -226,7 +226,7 @@ public class StubAssemblerTests
         return instruction;
     }
 
-    private static ulong CodeStart(CodeWriter code)
+    private static ulong GetCodeStart(CodeWriter code)
     {
         return code.NextAddress.Value - (ulong)code.Length;
     }

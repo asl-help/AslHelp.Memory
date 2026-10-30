@@ -42,7 +42,7 @@ public partial class PeReaderExtensionsTests
     [TestCase("lstrlenW")]
     public void GetExport_Kernel32Names_MatchTheHostLoader(string name)
     {
-        nint expected = HostExport((nint)_kernel32.Range.Start.Value, name);
+        nint expected = GetHostExport((nint)_kernel32.Range.Start.Value, name);
 
         Assert.That(_memory.GetExport(_kernel32, name).Unwrap(), Is.EqualTo(new Address((ulong)expected)));
     }
@@ -95,7 +95,7 @@ public partial class PeReaderExtensionsTests
 
     // .NET resolves the export with GetProcAddress. .NET Framework has no NativeLibrary, so it calls GetProcAddress
     // itself.
-    private static nint HostExport(nint module, string name)
+    private static nint GetHostExport(nint module, string name)
     {
 #if NET
         return NativeLibrary.GetExport(module, name);

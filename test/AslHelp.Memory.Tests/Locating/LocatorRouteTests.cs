@@ -16,19 +16,19 @@ public class LocatorRouteTests
     [Test]
     public void Locate_ExportStep_ReturnsTheExportPlusTheOffset()
     {
-        var image = PeImage.Build(true, ["Alpha", "Beta"]);
+        var image = PeImage.Create(true, ["Alpha", "Beta"]);
         BufferMemory memory = new(_base, image.Bytes, MemoryLayout.X64);
 
         LocatorRoute route = new("release", new ExportStep("Beta", 2));
 
-        Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + image.FunctionRva("Beta") + 2));
+        Assert.That(route.Locate(memory, Module(memory)).Unwrap(), Is.EqualTo(_base + image.GetFunctionRva("Beta") + 2));
     }
 
     // A missing export fails the step.
     [Test]
     public void Locate_MissingExport_NamesTheStep()
     {
-        var image = PeImage.Build(true, ["Alpha"]);
+        var image = PeImage.Create(true, ["Alpha"]);
         BufferMemory memory = new(_base, image.Bytes, MemoryLayout.X64);
 
         var located = new LocatorRoute("release", new ExportStep("Gamma")).Locate(memory, Module(memory));

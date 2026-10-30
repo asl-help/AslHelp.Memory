@@ -34,7 +34,7 @@ public partial class CodePatchTests
         byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, CaptureLayout.None, StubAssembler.X64)
             .Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080004001000000", // the record this patch counts into
             "41534C50", // the marker a later run recognizes the page by
             "0200", // the version, which decides how much of the record means something
@@ -56,7 +56,7 @@ public partial class CodePatchTests
         byte[] composed = CodePatch.Assemble(_entry32, _slot32, _record32, _prologue32, CaptureLayout.None, StubAssembler.X86)
             .Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080400000000000",
             "41534C50",
             "0200",
@@ -79,7 +79,7 @@ public partial class CodePatchTests
 
         byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080004001000000",
             "41534C50",
             "0200",
@@ -108,7 +108,7 @@ public partial class CodePatchTests
 
         byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080004001000000",
             "41534C50",
             "0200",
@@ -141,7 +141,7 @@ public partial class CodePatchTests
 
         byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080004001000000",
             "41534C50",
             "0200",
@@ -174,7 +174,7 @@ public partial class CodePatchTests
 
         byte[] composed = CodePatch.Assemble(_entry32, _slot32, _record32, _prologue32, layout, StubAssembler.X86).Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080400000000000",
             "41534C50",
             "0200",
@@ -217,7 +217,7 @@ public partial class CodePatchTests
 
         byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080004001000000",
             "41534C50",
             "0200",
@@ -271,7 +271,7 @@ public partial class CodePatchTests
 
         byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
-        byte[] expected = Bytes(
+        byte[] expected = FromHex(
             "0080004001000000",
             "41534C50",
             "0200",
@@ -347,7 +347,7 @@ public partial class CodePatchTests
     [Test]
     public void Assemble_EveryRegisterCopiedAndDereferenced_StaysInsideASlot()
     {
-        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, EveryRegister(), StubAssembler.X64)
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, CreateAllRegistersLayout(), StubAssembler.X64)
             .Unwrap();
 
         Assert.That(composed, Has.Length.EqualTo(0x30 + 142));
@@ -360,7 +360,7 @@ public partial class CodePatchTests
         // more than the 5 a jump needs.
         byte[] prologue = [0x48, 0x83, 0xEC, 0x28, 0x48, 0x89, 0x5C, 0x24, 0x30, 0x48, 0x8B, 0xD9];
 
-        var result = CodePatch.Assemble(_entry, _slot, _record, prologue, EveryRegister(), StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, prologue, CreateAllRegistersLayout(), StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -370,7 +370,7 @@ public partial class CodePatchTests
         }
     }
 
-    private static CaptureLayout EveryRegister()
+    private static CaptureLayout CreateAllRegistersLayout()
     {
         List<CaptureItem> items = [];
 
@@ -415,7 +415,7 @@ public partial class CodePatchTests
     {
         int accepted = 0;
 
-        while (accepted < 8 && CodePatch.StubFitsSlot(Objects(accepted + 1), StubAssembler.X64))
+        while (accepted < 8 && CodePatch.StubFitsSlot(CreateObjectLayout(accepted + 1), StubAssembler.X64))
         {
             accepted++;
         }
@@ -427,9 +427,9 @@ public partial class CodePatchTests
 
             // The count `StubFitsSlot` accepted assembles and 1 more object does not, so `StubFitsSlot` and `Assemble`
             // agree.
-            Assert.That(CodePatch.Assemble(_entry, _slot, _record, _widest, Objects(accepted), StubAssembler.X64).IsOk, Is.True);
+            Assert.That(CodePatch.Assemble(_entry, _slot, _record, _widest, CreateObjectLayout(accepted), StubAssembler.X64).IsOk, Is.True);
 
-            Assert.That(CodePatch.Assemble(_entry, _slot, _record, _widest, Objects(accepted + 1), StubAssembler.X64).IsErr, Is.True);
+            Assert.That(CodePatch.Assemble(_entry, _slot, _record, _widest, CreateObjectLayout(accepted + 1), StubAssembler.X64).IsErr, Is.True);
         }
     }
 
@@ -440,7 +440,7 @@ public partial class CodePatchTests
     }
 
     // Builds a layout of `count` objects, each captured as its address and the word the object opens with.
-    private static CaptureLayout Objects(int count)
+    private static CaptureLayout CreateObjectLayout(int count)
     {
         List<CaptureItem> items = [];
 
@@ -517,14 +517,14 @@ public partial class CodePatchTests
     [Test]
     public void CreatePlan_AMonoX64Prologue_StealsTheFirstInstruction()
     {
-        var memory = Memory(_entry, Bytes("48895C2408", "48896C2410", "4889742418", "57", "4883EC20"), MemoryLayout.X64);
+        var memory = CreateMemory(_entry, FromHex("48895C2408", "48896C2410", "4889742418", "57", "4883EC20"), MemoryLayout.X64);
 
         var plan = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(plan.Entry, Is.EqualTo(_entry));
-            Assert.That(plan.Original, Is.EqualTo(Bytes("48895C2408")));
+            Assert.That(plan.Original, Is.EqualTo(FromHex("48895C2408")));
             Assert.That(plan.Layout, Is.SameAs(CaptureLayout.None));
             Assert.That(plan.Assembler, Is.SameAs(StubAssembler.X64));
         }
@@ -534,13 +534,13 @@ public partial class CodePatchTests
     [Test]
     public void CreatePlan_AnMsvcX86Prologue_StealsWholeInstructions()
     {
-        var memory = Memory(_entry32, Bytes("55", "8BEC", "83EC08", "53", "56", "57"), MemoryLayout.X86);
+        var memory = CreateMemory(_entry32, FromHex("55", "8BEC", "83EC08", "53", "56", "57"), MemoryLayout.X86);
 
         var plan = CodePatch.CreatePlan(memory, _entry32, CaptureLayout.None).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(plan.Original, Is.EqualTo(Bytes("55", "8BEC", "83EC08")));
+            Assert.That(plan.Original, Is.EqualTo(FromHex("55", "8BEC", "83EC08")));
             Assert.That(plan.Assembler, Is.SameAs(StubAssembler.X86));
         }
     }
@@ -549,7 +549,7 @@ public partial class CodePatchTests
     [Test]
     public void CreatePlan_ARipRelativePrologue_Refuses()
     {
-        var memory = Memory(_entry, Bytes("488B05E9B95500", "4889484048"), MemoryLayout.X64);
+        var memory = CreateMemory(_entry, FromHex("488B05E9B95500", "4889484048"), MemoryLayout.X64);
 
         var result = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None);
 
@@ -561,7 +561,7 @@ public partial class CodePatchTests
     public void CreatePlan_AnEntryCrossingAWord_Refuses()
     {
         var entry = _entry + 4;
-        var memory = Memory(entry, Bytes("48895C2408", "4883EC20"), MemoryLayout.X64);
+        var memory = CreateMemory(entry, FromHex("48895C2408", "4883EC20"), MemoryLayout.X64);
 
         var result = CodePatch.CreatePlan(memory, entry, CaptureLayout.None);
 
@@ -572,7 +572,7 @@ public partial class CodePatchTests
     [Test]
     public void CreatePlan_AnUndecodableEntry_Refuses()
     {
-        var memory = Memory(_entry, Bytes("0F3800C0"), MemoryLayout.X64);
+        var memory = CreateMemory(_entry, FromHex("0F3800C0"), MemoryLayout.X64);
 
         var result = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None);
 
@@ -594,7 +594,7 @@ public partial class CodePatchTests
     [Test]
     public void CreatePlan_ANonIntelTarget_Refuses()
     {
-        var memory = Memory(_entry, Bytes("48895C2408", "4883EC20"), new MemoryLayout(2, ByteOrder.LittleEndian));
+        var memory = CreateMemory(_entry, FromHex("48895C2408", "4883EC20"), new MemoryLayout(2, ByteOrder.LittleEndian));
 
         var result = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None);
 
@@ -605,9 +605,9 @@ public partial class CodePatchTests
     [Test]
     public void CreatePlan_ALayoutTooLargeForASlot_Refuses()
     {
-        var memory = Memory(_entry, Bytes("48895C2408", "4883EC20"), MemoryLayout.X64);
+        var memory = CreateMemory(_entry, FromHex("48895C2408", "4883EC20"), MemoryLayout.X64);
 
-        var result = CodePatch.CreatePlan(memory, _entry, Objects(6));
+        var result = CodePatch.CreatePlan(memory, _entry, CreateObjectLayout(6));
 
         Assert.That(result.Error!.Message, Does.Contain("room"));
     }
@@ -783,8 +783,8 @@ public partial class CodePatchTests
         byte[] page = CodePatch.Assemble(entry, slot, record, _prologue32, CaptureLayout.None, StubAssembler.X86).Unwrap();
 
         SparseMemory memory = new(MemoryLayout.X86);
-        memory.Map(slot, page);
-        memory.Map(entry, [0xE9, .. BitConverter.GetBytes(unchecked((int)(uint)(slot.Value + 0x30 - (entry.Value + 5))))]);
+        memory.Add(slot, page);
+        memory.Add(entry, [0xE9, .. BitConverter.GetBytes(unchecked((int)(uint)(slot.Value + 0x30 - (entry.Value + 5))))]);
 
         var patch = CodePatch.Adopt(memory, entry).Unwrap();
 
@@ -839,7 +839,7 @@ public partial class CodePatchTests
     {
         Address entry = new(0x20000);
         byte[] bytes = new byte[0x200];
-        Bytes(hex).CopyTo(bytes, 0);
+        FromHex(hex).CopyTo(bytes, 0);
 
         var result = CodePatch.Adopt(new BufferMemory(entry, bytes, MemoryLayout.X64), entry);
 
@@ -854,7 +854,7 @@ public partial class CodePatchTests
 
         public MemoryLayout Layout => layout;
 
-        public void Map(Address start, byte[] bytes)
+        public void Add(Address start, byte[] bytes)
         {
             byte[] padded = new byte[bytes.Length + 32];
             bytes.CopyTo(padded, 0);
@@ -876,7 +876,7 @@ public partial class CodePatchTests
         }
     }
 
-    private static BufferMemory Memory(Address at, byte[] bytes, MemoryLayout layout)
+    private static BufferMemory CreateMemory(Address at, byte[] bytes, MemoryLayout layout)
     {
         byte[] padded = new byte[bytes.Length + 32];
         bytes.CopyTo(padded, 0);
@@ -884,7 +884,7 @@ public partial class CodePatchTests
         return new(at, padded, layout);
     }
 
-    private static byte[] Bytes(params string[] hex)
+    private static byte[] FromHex(params string[] hex)
     {
         string joined = string.Concat(hex);
         byte[] bytes = new byte[joined.Length / 2];
