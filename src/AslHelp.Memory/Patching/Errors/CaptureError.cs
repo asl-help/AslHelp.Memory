@@ -94,7 +94,7 @@ internal sealed record CaptureError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static CaptureError NotInARegister(int index)
+    public static CaptureError RegisterIndexOutOfRange(int index)
     {
         return new($"Argument {index} isn't in a register. Only the first 4 are.");
     }
@@ -117,7 +117,7 @@ internal sealed record CaptureError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static CaptureError FloatIsNotAnAddress()
+    public static CaptureError FloatNotAnAddress()
     {
         return new("A floating point value can't be read through, because it isn't an address.");
     }
@@ -129,7 +129,7 @@ internal sealed record CaptureError : ResultError
     /// <returns>
     ///     The error.
     /// </returns>
-    public static CaptureError NotAStackSlot(int index)
+    public static CaptureError StackIndexOutOfRange(int index)
     {
         return new($"Stack slot {index} can't hold an argument. Slots count from 0, the first one above the return address.");
     }

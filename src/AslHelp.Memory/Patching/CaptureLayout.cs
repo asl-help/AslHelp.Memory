@@ -25,12 +25,12 @@ public sealed class CaptureLayout
     ///     whichever version of this library finds it. Moving a field means a patch left behind by a crash stops
     ///     being readable.
     /// </remarks>
-    public const int PayloadAt = 0x18;
+    public const int PayloadOffset = 0x18;
 
     /// <summary>
     ///     How many bytes of a record a capture may use.
     /// </summary>
-    public const int PayloadSize = RecordSize - PayloadAt;
+    public const int PayloadSize = RecordSize - PayloadOffset;
 
     // Fits the header and the payload of 1 call, so 2 records never share a cache line with a 64-byte line size.
     internal const int RecordSize = 0x80;
@@ -75,9 +75,9 @@ public sealed class CaptureLayout
     /// </returns>
     internal Result Emit(CodeWriter code, Address record, IStubAssembler assembler)
     {
-        if (Placement(assembler.PointerSize).TryUnwrapErr(out var placementError))
+        if (Validate(assembler.PointerSize).TryUnwrapErr(out var validationError))
         {
-            return placementError;
+            return validationError;
         }
 
         foreach (var item in Items)
@@ -86,9 +86,9 @@ public sealed class CaptureLayout
 
             var written = item.Source switch
             {
-                CaptureSource.Register => assembler.CaptureRegister(code, target, item.Index, item.Width, item.Indirect),
-                CaptureSource.FloatRegister => assembler.CaptureFloatRegister(code, target, item.Index, item.Width, item.Indirect),
-                CaptureSource.Stack => assembler.CaptureStack(code, target, item.Index, item.Width, item.Indirect),
+                CaptureSource.Register => assembler.EmitRegisterCapture(code, target, item.Index, item.Width, item.IsIndirect),
+                CaptureSource.FloatRegister => assembler.EmitFloatRegisterCapture(code, target, item.Index, item.Width, item.IsIndirect),
+                CaptureSource.Stack => assembler.EmitStackCapture(code, target, item.Index, item.Width, item.IsIndirect),
                 _ => CaptureError.UnknownCaptureSource(item.Source),
             };
 
@@ -103,7 +103,7 @@ public sealed class CaptureLayout
 
     // Checks overlaps over the whole layout before a byte is emitted, since an overlap is a property of the set, not of
     // one item.
-    private Result Placement(int pointerWidth)
+    private Result Validate(int pointerWidth)
     {
         for (int i = 0; i < Items.Count; i++)
         {
@@ -119,7 +119,7 @@ public sealed class CaptureLayout
                 return CaptureError.WidthBeyondPointer(item.Width, pointerWidth);
             }
 
-            if (item.RecordOffset < PayloadAt || item.RecordOffset + item.Width > RecordSize)
+            if (item.RecordOffset < PayloadOffset || item.RecordOffset + item.Width > RecordSize)
             {
                 return CaptureError.OutsidePayload(item.Width, item.RecordOffset);
             }

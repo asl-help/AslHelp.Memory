@@ -29,9 +29,9 @@ public partial class CodePatchTests
     private const string HeaderTail = "00000000000000000000000000000000000000";
 
     [Test]
-    public void Compose_AnEmptyLayout_WritesTheCountingStubUnchanged()
+    public void Assemble_AnEmptyLayout_WritesTheCountingStubUnchanged()
     {
-        byte[] composed = CodePatch.Compose(_entry, _slot, _record, _prologue, CaptureLayout.None, StubAssembler.X64)
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, CaptureLayout.None, StubAssembler.X64)
             .Unwrap();
 
         byte[] expected = Bytes(
@@ -51,9 +51,9 @@ public partial class CodePatchTests
     }
 
     [Test]
-    public void Compose_AnEmptyLayoutOnThirtyTwoBits_WritesTheCountingStubUnchanged()
+    public void Assemble_AnEmptyLayoutOnThirtyTwoBits_WritesTheCountingStubUnchanged()
     {
-        byte[] composed = CodePatch.Compose(_entry32, _slot32, _record32, _prologue32, CaptureLayout.None, StubAssembler.X86)
+        byte[] composed = CodePatch.Assemble(_entry32, _slot32, _record32, _prologue32, CaptureLayout.None, StubAssembler.X86)
             .Unwrap();
 
         byte[] expected = Bytes(
@@ -73,11 +73,11 @@ public partial class CodePatchTests
     }
 
     [Test]
-    public void Compose_ACapturingLayout_ClaimsTheSequenceAndSendsASecondCallerPastTheCapture()
+    public void Assemble_ACapturingLayout_ClaimsTheSequenceAndSendsASecondCallerPastTheCapture()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 8)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 8)]);
 
-        byte[] composed = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
         byte[] expected = Bytes(
             "0080004001000000",
@@ -102,11 +102,11 @@ public partial class CodePatchTests
     // An indirect register capture leaves a null alone. Reading through a captured value is the one thing a stub does
     // that can fault. A slot at zero is ordinary, so the load is jumped over and the record keeps the zero.
     [Test]
-    public void Compose_AnIndirectRegisterCapture_LeavesANullAloneRatherThanReadingThroughIt()
+    public void Assemble_AnIndirectRegisterCapture_LeavesANullAloneRatherThanReadingThroughIt()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 8, Indirect: true)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 8, IsIndirect: true)]);
 
-        byte[] composed = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
         byte[] expected = Bytes(
             "0080004001000000",
@@ -135,11 +135,11 @@ public partial class CodePatchTests
     }
 
     [Test]
-    public void Compose_AnIndirectStackCapture_LeavesANullAloneRatherThanReadingThroughIt()
+    public void Assemble_AnIndirectStackCapture_LeavesANullAloneRatherThanReadingThroughIt()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadAt, 8, Indirect: true)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset, 8, IsIndirect: true)]);
 
-        byte[] composed = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
         byte[] expected = Bytes(
             "0080004001000000",
@@ -168,11 +168,11 @@ public partial class CodePatchTests
     }
 
     [Test]
-    public void Compose_AnIndirectStackCaptureOnThirtyTwoBits_LeavesANullAloneToo()
+    public void Assemble_AnIndirectStackCaptureOnThirtyTwoBits_LeavesANullAloneToo()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadAt, 4, Indirect: true)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset, 4, IsIndirect: true)]);
 
-        byte[] composed = CodePatch.Compose(_entry32, _slot32, _record32, _prologue32, layout, StubAssembler.X86).Unwrap();
+        byte[] composed = CodePatch.Assemble(_entry32, _slot32, _record32, _prologue32, layout, StubAssembler.X86).Unwrap();
 
         byte[] expected = Bytes(
             "0080400000000000",
@@ -204,18 +204,18 @@ public partial class CodePatchTests
     // relative to the store, so no 2 displacements are equal. Each dereference restores the accumulator, so the
     // next item addresses against the entry's stack pointer.
     [Test]
-    public void Compose_SeveralCaptures_ReachesEachOwnPlaceFromItsOwnPosition()
+    public void Assemble_SeveralCaptures_ReachesEachOwnPlaceFromItsOwnPosition()
     {
         CaptureLayout layout = new(
         [
-            new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 8),
-            new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadAt + 0x08, 8, Indirect: true),
-            new CaptureItem(CaptureSource.Register, 1, CaptureLayout.PayloadAt + 0x10, 4),
-            new CaptureItem(CaptureSource.Register, 2, CaptureLayout.PayloadAt + 0x18, 8),
-            new CaptureItem(CaptureSource.Register, 2, CaptureLayout.PayloadAt + 0x20, 8, Indirect: true),
+            new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 8),
+            new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadOffset + 0x08, 8, IsIndirect: true),
+            new CaptureItem(CaptureSource.Register, 1, CaptureLayout.PayloadOffset + 0x10, 4),
+            new CaptureItem(CaptureSource.Register, 2, CaptureLayout.PayloadOffset + 0x18, 8),
+            new CaptureItem(CaptureSource.Register, 2, CaptureLayout.PayloadOffset + 0x20, 8, IsIndirect: true),
         ]);
 
-        byte[] composed = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
         byte[] expected = Bytes(
             "0080004001000000",
@@ -259,7 +259,7 @@ public partial class CodePatchTests
     [TestCase(4, "720E", "8915CE7FFFFF", "F048FF05B67FFFFF", "F048FF05C87FFFFF", "E9A90FFFFF")]
     [TestCase(2, "720F", "668915CD7FFFFF", "F048FF05B57FFFFF", "F048FF05C87FFFFF", "E9A80FFFFF")]
     [TestCase(1, "720E", "8815CE7FFFFF", "F048FF05B67FFFFF", "F048FF05C87FFFFF", "E9A90FFFFF")]
-    public void Compose_ANarrowArgument_WritesItAtTheWidthItWasDeclared(
+    public void Assemble_ANarrowArgument_WritesItAtTheWidthItWasDeclared(
         int width,
         string skip,
         string store,
@@ -267,9 +267,9 @@ public partial class CodePatchTests
         string count,
         string back)
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 1, CaptureLayout.PayloadAt, width)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 1, CaptureLayout.PayloadOffset, width)]);
 
-        byte[] composed = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64).Unwrap();
 
         byte[] expected = Bytes(
             "0080004001000000",
@@ -294,31 +294,31 @@ public partial class CodePatchTests
     // 2 captures on the same bytes are refused. The record would have a number either could have written, and the
     // layout is the only place that sees every item at once.
     [Test]
-    public void Compose_TwoCapturesOnTheSameBytes_RefusesThem()
+    public void Assemble_TwoCapturesOnTheSameBytes_RefusesThem()
     {
         CaptureLayout layout = new(
         [
-            new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 8),
-            new CaptureItem(CaptureSource.Register, 1, CaptureLayout.PayloadAt + 4, 4),
+            new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 8),
+            new CaptureItem(CaptureSource.Register, 1, CaptureLayout.PayloadOffset + 4, 4),
         ]);
 
-        var result = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsErr, Is.True);
             Assert.That(result.Error!.Message, Does.Contain("overlap"));
-            Assert.That(result.Error!.Message, Does.Contain($"0x{CaptureLayout.PayloadAt:X}"));
-            Assert.That(result.Error!.Message, Does.Contain($"0x{CaptureLayout.PayloadAt + 4:X}"));
+            Assert.That(result.Error!.Message, Does.Contain($"0x{CaptureLayout.PayloadOffset:X}"));
+            Assert.That(result.Error!.Message, Does.Contain($"0x{CaptureLayout.PayloadOffset + 4:X}"));
         }
     }
 
     [Test]
-    public void Compose_AWidthNoSingleStoreCovers_RefusesIt()
+    public void Assemble_AWidthNoSingleStoreCovers_RefusesIt()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 3)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 3)]);
 
-        var result = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -328,11 +328,11 @@ public partial class CodePatchTests
     }
 
     [Test]
-    public void Compose_AnEightByteCaptureOnAThirtyTwoBitTarget_RefusesIt()
+    public void Assemble_AnEightByteCaptureOnAThirtyTwoBitTarget_RefusesIt()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadAt, 8)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset, 8)]);
 
-        var result = CodePatch.Compose(_entry32, _slot32, _record32, _prologue32, layout, StubAssembler.X86);
+        var result = CodePatch.Assemble(_entry32, _slot32, _record32, _prologue32, layout, StubAssembler.X86);
 
         using (Assert.EnterMultipleScope())
         {
@@ -345,22 +345,22 @@ public partial class CodePatchTests
     // arguments are in registers. It comes to 138 of the 144 bytes a slot leaves for code. The displaced prologue
     // eats the margin. The same captures over 12 displaced bytes want 1 byte more.
     [Test]
-    public void Compose_EveryRegisterCopiedAndDereferenced_StaysInsideASlot()
+    public void Assemble_EveryRegisterCopiedAndDereferenced_StaysInsideASlot()
     {
-        byte[] composed = CodePatch.Compose(_entry, _slot, _record, _prologue, EveryRegister(), StubAssembler.X64)
+        byte[] composed = CodePatch.Assemble(_entry, _slot, _record, _prologue, EveryRegister(), StubAssembler.X64)
             .Unwrap();
 
         Assert.That(composed, Has.Length.EqualTo(0x30 + 142));
     }
 
     [Test]
-    public void Compose_TheSameCapturesOverALongerPrologue_RefusesThemRatherThanWritingPastTheSlot()
+    public void Assemble_TheSameCapturesOverALongerPrologue_RefusesThemRatherThanWritingPastTheSlot()
     {
         // `sub rsp, 0x28`, `mov [rsp+0x30], rbx` and `mov rbx, rcx`, 12 bytes of an ordinary prologue and 7
         // more than the 5 a jump needs.
         byte[] prologue = [0x48, 0x83, 0xEC, 0x28, 0x48, 0x89, 0x5C, 0x24, 0x30, 0x48, 0x8B, 0xD9];
 
-        var result = CodePatch.Compose(_entry, _slot, _record, prologue, EveryRegister(), StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, prologue, EveryRegister(), StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -376,26 +376,26 @@ public partial class CodePatchTests
 
         for (int i = 0; i < 4; i++)
         {
-            int at = CaptureLayout.PayloadAt + (i * 16);
+            int at = CaptureLayout.PayloadOffset + (i * 16);
 
             items.Add(new CaptureItem(CaptureSource.Register, i, at, 8));
-            items.Add(new CaptureItem(CaptureSource.Register, i, at + 8, 8, Indirect: true));
+            items.Add(new CaptureItem(CaptureSource.Register, i, at + 8, 8, IsIndirect: true));
         }
 
         return new CaptureLayout(items);
     }
 
     [Test]
-    public void Compose_AStubTooLargeForItsSlot_RefusesItRatherThanWritingPastIt()
+    public void Assemble_AStubTooLargeForItsSlot_RefusesItRatherThanWritingPastIt()
     {
         List<CaptureItem> items = [];
 
         for (int i = 0; i < 8; i++)
         {
-            items.Add(new CaptureItem(CaptureSource.Stack, i, CaptureLayout.PayloadAt + (i * 8), 8, Indirect: true));
+            items.Add(new CaptureItem(CaptureSource.Stack, i, CaptureLayout.PayloadOffset + (i * 8), 8, IsIndirect: true));
         }
 
-        var result = CodePatch.Compose(_entry, _slot, _record, _prologue, new CaptureLayout(items), StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, _prologue, new CaptureLayout(items), StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -408,34 +408,35 @@ public partial class CodePatchTests
         }
     }
 
-    // `Fits` checks against the widest prologue, not the prologue at hand, since a caller composing a layout can't know
-    // where the slot's bound is and the result has to be true for every entry.
+    // `StubFitsSlot` checks against the widest prologue, not the prologue at hand, since a caller composing a layout
+    // can't know where the slot's bound is and the result has to be true for every entry.
     [Test]
-    public void Fits_ALayoutNearFillingASlot_AnswersForTheWidestPrologueRatherThanTheOneAtHand()
+    public void StubFitsSlot_ALayoutNearFillingASlot_AnswersForTheWidestPrologueRatherThanTheOneAtHand()
     {
         int accepted = 0;
 
-        while (accepted < 8 && CodePatch.Fits(Objects(accepted + 1), StubAssembler.X64))
+        while (accepted < 8 && CodePatch.StubFitsSlot(Objects(accepted + 1), StubAssembler.X64))
         {
             accepted++;
         }
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(CodePatch.Fits(CaptureLayout.None, StubAssembler.X64), Is.True);
+            Assert.That(CodePatch.StubFitsSlot(CaptureLayout.None, StubAssembler.X64), Is.True);
             Assert.That(accepted, Is.EqualTo(3));
 
-            // The count `Fits` accepted composes and one more object does not, so `Fits` and `Compose` agree.
-            Assert.That(CodePatch.Compose(_entry, _slot, _record, _widest, Objects(accepted), StubAssembler.X64).IsOk, Is.True);
+            // The count `StubFitsSlot` accepted assembles and 1 more object does not, so `StubFitsSlot` and `Assemble`
+            // agree.
+            Assert.That(CodePatch.Assemble(_entry, _slot, _record, _widest, Objects(accepted), StubAssembler.X64).IsOk, Is.True);
 
-            Assert.That(CodePatch.Compose(_entry, _slot, _record, _widest, Objects(accepted + 1), StubAssembler.X64).IsErr, Is.True);
+            Assert.That(CodePatch.Assemble(_entry, _slot, _record, _widest, Objects(accepted + 1), StubAssembler.X64).IsErr, Is.True);
         }
     }
 
     [Test]
-    public void Fits_WithoutALayout_Throws()
+    public void StubFitsSlot_WithoutALayout_Throws()
     {
-        Assert.That(() => CodePatch.Fits(null!, StubAssembler.X64), Throws.ArgumentNullException);
+        Assert.That(() => CodePatch.StubFitsSlot(null!, StubAssembler.X64), Throws.ArgumentNullException);
     }
 
     // Builds a layout of `count` objects, each captured as its address and the word the object opens with.
@@ -445,21 +446,21 @@ public partial class CodePatchTests
 
         for (int i = 0; i < count; i++)
         {
-            int at = CaptureLayout.PayloadAt + (i * 16);
+            int at = CaptureLayout.PayloadOffset + (i * 16);
 
             items.Add(new CaptureItem(CaptureSource.Register, i % 4, at, 8));
-            items.Add(new CaptureItem(CaptureSource.Register, i % 4, at + 8, 8, Indirect: true));
+            items.Add(new CaptureItem(CaptureSource.Register, i % 4, at + 8, 8, IsIndirect: true));
         }
 
         return new CaptureLayout(items);
     }
 
     [Test]
-    public void Compose_ARegisterOnAThirtyTwoBitTarget_RefusesIt()
+    public void Assemble_ARegisterOnAThirtyTwoBitTarget_RefusesIt()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 4)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 4)]);
 
-        var result = CodePatch.Compose(_entry32, _slot32, _record32, _prologue32, layout, StubAssembler.X86);
+        var result = CodePatch.Assemble(_entry32, _slot32, _record32, _prologue32, layout, StubAssembler.X86);
 
         using (Assert.EnterMultipleScope())
         {
@@ -469,11 +470,11 @@ public partial class CodePatchTests
     }
 
     [Test]
-    public void Compose_AnArgumentPastTheFourthRegister_RefusesIt()
+    public void Assemble_AnArgumentPastTheFourthRegister_RefusesIt()
     {
-        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 4, CaptureLayout.PayloadAt, 8)]);
+        CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 4, CaptureLayout.PayloadOffset, 8)]);
 
-        var result = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -485,11 +486,11 @@ public partial class CodePatchTests
     // A capture aimed at the record's own words is refused. The count and the sequence live below the payload. A
     // capture there would overwrite what the reader reads by.
     [Test]
-    public void Compose_ACaptureAimedAtTheRecordsOwnWords_RefusesIt()
+    public void Assemble_ACaptureAimedAtTheRecordsOwnWords_RefusesIt()
     {
         CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, 0x08, 8)]);
 
-        var result = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -499,11 +500,11 @@ public partial class CodePatchTests
     }
 
     [Test]
-    public void Compose_ACaptureRunningPastTheRecord_RefusesIt()
+    public void Assemble_ACaptureRunningPastTheRecord_RefusesIt()
     {
         CaptureLayout layout = new([new CaptureItem(CaptureSource.Register, 0, CaptureLayout.RecordSize - 4, 8)]);
 
-        var result = CodePatch.Compose(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
+        var result = CodePatch.Assemble(_entry, _slot, _record, _prologue, layout, StubAssembler.X64);
 
         using (Assert.EnterMultipleScope())
         {
@@ -514,11 +515,11 @@ public partial class CodePatchTests
 
     // A plan steals whole instructions at the entry and keeps their bytes.
     [Test]
-    public void Plan_AMonoX64Prologue_StealsTheFirstInstruction()
+    public void CreatePlan_AMonoX64Prologue_StealsTheFirstInstruction()
     {
         var memory = Memory(_entry, Bytes("48895C2408", "48896C2410", "4889742418", "57", "4883EC20"), MemoryLayout.X64);
 
-        var plan = CodePatch.Plan(memory, _entry, CaptureLayout.None).Unwrap();
+        var plan = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
@@ -531,11 +532,11 @@ public partial class CodePatchTests
 
     // A 32-bit target gets the x86 assembler and steals past the jump's 5 bytes.
     [Test]
-    public void Plan_AnMsvcX86Prologue_StealsWholeInstructions()
+    public void CreatePlan_AnMsvcX86Prologue_StealsWholeInstructions()
     {
         var memory = Memory(_entry32, Bytes("55", "8BEC", "83EC08", "53", "56", "57"), MemoryLayout.X86);
 
-        var plan = CodePatch.Plan(memory, _entry32, CaptureLayout.None).Unwrap();
+        var plan = CodePatch.CreatePlan(memory, _entry32, CaptureLayout.None).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
@@ -546,67 +547,67 @@ public partial class CodePatchTests
 
     // An entry whose stolen instructions depend on their address is refused.
     [Test]
-    public void Plan_ARipRelativePrologue_Refuses()
+    public void CreatePlan_ARipRelativePrologue_Refuses()
     {
         var memory = Memory(_entry, Bytes("488B05E9B95500", "4889484048"), MemoryLayout.X64);
 
-        var result = CodePatch.Plan(memory, _entry, CaptureLayout.None);
+        var result = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None);
 
         Assert.That(result.Error!.Message, Does.Contain("depend on their address"));
     }
 
     // An entry whose first 5 bytes cross an 8-byte boundary can't take the jump in 1 store.
     [Test]
-    public void Plan_AnEntryCrossingAWord_Refuses()
+    public void CreatePlan_AnEntryCrossingAWord_Refuses()
     {
         var entry = _entry + 4;
         var memory = Memory(entry, Bytes("48895C2408", "4883EC20"), MemoryLayout.X64);
 
-        var result = CodePatch.Plan(memory, entry, CaptureLayout.None);
+        var result = CodePatch.CreatePlan(memory, entry, CaptureLayout.None);
 
         Assert.That(result.Error!.Message, Does.Contain("boundary"));
     }
 
     // An entry that can't be decoded is refused.
     [Test]
-    public void Plan_AnUndecodableEntry_Refuses()
+    public void CreatePlan_AnUndecodableEntry_Refuses()
     {
         var memory = Memory(_entry, Bytes("0F3800C0"), MemoryLayout.X64);
 
-        var result = CodePatch.Plan(memory, _entry, CaptureLayout.None);
+        var result = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None);
 
         Assert.That(result.Error!.Message, Does.Contain("decoded"));
     }
 
     // An entry with fewer readable bytes than the widest prologue is refused.
     [Test]
-    public void Plan_AnUnreadableEntry_Refuses()
+    public void CreatePlan_AnUnreadableEntry_Refuses()
     {
         BufferMemory memory = new(_entry, new byte[4], MemoryLayout.X64);
 
-        var result = CodePatch.Plan(memory, _entry, CaptureLayout.None);
+        var result = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None);
 
         Assert.That(result.Error!.Message, Does.Contain("read"));
     }
 
     // A target with a pointer size other than 4 or 8 isn't Intel and is refused.
     [Test]
-    public void Plan_ANonIntelTarget_Refuses()
+    public void CreatePlan_ANonIntelTarget_Refuses()
     {
         var memory = Memory(_entry, Bytes("48895C2408", "4883EC20"), new MemoryLayout(2, ByteOrder.LittleEndian));
 
-        var result = CodePatch.Plan(memory, _entry, CaptureLayout.None);
+        var result = CodePatch.CreatePlan(memory, _entry, CaptureLayout.None);
 
         Assert.That(result.Error!.Message, Does.Contain("x86 and x64"));
     }
 
     // A plan refuses a layout its stub can't fit, before any memory is reserved.
     [Test]
-    public void Plan_ALayoutTooLargeForASlot_Refuses()
+    public void CreatePlan_ALayoutTooLargeForASlot_Refuses()
     {
         var memory = Memory(_entry, Bytes("48895C2408", "4883EC20"), MemoryLayout.X64);
 
-        var result = CodePatch.Plan(memory, _entry, Objects(6));
+        var result = CodePatch.CreatePlan(memory, _entry, Objects(6));
 
         Assert.That(result.Error!.Message, Does.Contain("room"));
     }
@@ -622,13 +623,13 @@ public partial class CodePatchTests
 
         var patch = StandingPatch.Installed();
 
-        Span<byte> into = stackalloc byte[8];
-        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+        Span<byte> destination = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, destination).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(read, Is.True);
-            Assert.That(into.ToArray(), Is.EqualTo(payload));
+            Assert.That(destination.ToArray(), Is.EqualTo(payload));
             Assert.That(standing.SequenceReads, Is.EqualTo(2));
         }
     }
@@ -647,13 +648,13 @@ public partial class CodePatchTests
 
         var patch = StandingPatch.Installed();
 
-        Span<byte> into = stackalloc byte[8];
-        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+        Span<byte> destination = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, destination).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(read, Is.True);
-            Assert.That(into.ToArray(), Is.EqualTo(payload));
+            Assert.That(destination.ToArray(), Is.EqualTo(payload));
 
             // Expects the odd read, then the 2 reads that agreed.
             Assert.That(standing.SequenceReads, Is.EqualTo(3));
@@ -668,8 +669,8 @@ public partial class CodePatchTests
 
         var patch = StandingPatch.Installed();
 
-        Span<byte> into = stackalloc byte[8];
-        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+        Span<byte> destination = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, destination).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
@@ -689,8 +690,8 @@ public partial class CodePatchTests
 
         var patch = StandingPatch.Installed();
 
-        Span<byte> into = stackalloc byte[8];
-        bool read = patch.TryReadCall(standing.Memory, into).Unwrap();
+        Span<byte> destination = stackalloc byte[8];
+        bool read = patch.TryReadCall(standing.Memory, destination).Unwrap();
 
         using (Assert.EnterMultipleScope())
         {
@@ -723,8 +724,8 @@ public partial class CodePatchTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(patch.WasAdopted, Is.True);
-            Assert.That(patch.Captures, Is.False);
+            Assert.That(patch.IsAdopted, Is.True);
+            Assert.That(patch.HasCaptures, Is.False);
             Assert.That(result.Error!.Message, Does.Contain("isn't known"));
             Assert.That(standing.SequenceReads, Is.Zero);
         }
@@ -755,7 +756,7 @@ public partial class CodePatchTests
         var record = entry + 0x200;
         byte[] bytes = new byte[0x200 + CaptureLayout.RecordSize];
 
-        byte[] page = CodePatch.Compose(entry, slot, record, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
+        byte[] page = CodePatch.Assemble(entry, slot, record, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
         page.CopyTo(bytes, 0x40);
         bytes[0] = 0xE9;
         BitConverter.GetBytes((int)(slot + 0x30 - (entry + 5))).CopyTo(bytes, 1);
@@ -767,8 +768,8 @@ public partial class CodePatchTests
             Assert.That(patch.Entry, Is.EqualTo(entry));
             Assert.That(patch.Slot, Is.EqualTo(slot));
             Assert.That(patch.Record, Is.EqualTo(record));
-            Assert.That(patch.Original, Is.EqualTo(_prologue));
-            Assert.That(patch.WasAdopted, Is.True);
+            Assert.That(patch.OriginalBytes, Is.EqualTo(_prologue));
+            Assert.That(patch.IsAdopted, Is.True);
         }
     }
 
@@ -779,7 +780,7 @@ public partial class CodePatchTests
         Address entry = new(0x00401000);
         Address slot = new(0xC0000000);
         Address record = new(0xBFFF0000);
-        byte[] page = CodePatch.Compose(entry, slot, record, _prologue32, CaptureLayout.None, StubAssembler.X86).Unwrap();
+        byte[] page = CodePatch.Assemble(entry, slot, record, _prologue32, CaptureLayout.None, StubAssembler.X86).Unwrap();
 
         SparseMemory memory = new(MemoryLayout.X86);
         memory.Map(slot, page);
@@ -802,7 +803,7 @@ public partial class CodePatchTests
         var slot = entry + 0x40;
         byte[] bytes = new byte[0x200 + CaptureLayout.RecordSize];
 
-        byte[] page = CodePatch.Compose(entry, slot, entry + 0x200, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
+        byte[] page = CodePatch.Assemble(entry, slot, entry + 0x200, _prologue, CaptureLayout.None, StubAssembler.X64).Unwrap();
         page[0x0E] = 14;
         page.CopyTo(bytes, 0x40);
         bytes[0] = 0xE9;

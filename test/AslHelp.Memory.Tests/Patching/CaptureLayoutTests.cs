@@ -13,14 +13,20 @@ public class CaptureLayoutTests
 
     // The payload starts after the 3 header words and fills the rest of the record.
     [Test]
-    public void PayloadSize_IsTheRecordPastTheHeader()
+    public void PayloadOffset_WithPayloadSize_CoversTheRecordPastTheHeader()
     {
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(CaptureLayout.PayloadAt, Is.EqualTo(0x18));
+            Assert.That(CaptureLayout.PayloadOffset, Is.EqualTo(0x18));
             Assert.That(CaptureLayout.PayloadSize, Is.EqualTo(0x80 - 0x18));
-            Assert.That(CaptureLayout.None.IsEmpty, Is.True);
         }
+    }
+
+    // The layout with no items is empty.
+    [Test]
+    public void None_Always_IsEmpty()
+    {
+        Assert.That(CaptureLayout.None.IsEmpty, Is.True);
     }
 
     // An empty layout emits nothing.
@@ -47,7 +53,7 @@ public class CaptureLayoutTests
         [
             new CaptureItem(CaptureSource.Register, 0, 0x18, 8),
             new CaptureItem(CaptureSource.FloatRegister, 1, 0x20, 4),
-            new CaptureItem(CaptureSource.Stack, 4, 0x28, 8, Indirect: true),
+            new CaptureItem(CaptureSource.Stack, 4, 0x28, 8, IsIndirect: true),
         ]);
 
         var result = layout.Emit(code, _record, StubAssembler.X64);

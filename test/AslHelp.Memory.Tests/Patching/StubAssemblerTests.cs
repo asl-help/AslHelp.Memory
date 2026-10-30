@@ -15,13 +15,13 @@ public class StubAssemblerTests
     private const ulong Code32 = 0x410000;
     private const ulong Record32 = 0x408000;
 
-    // The x64 count is a locked rip relative increment that reaches the record.
+    // EmitIncrement on x64 emits a locked rip relative increment that reaches the record.
     [Test]
-    public void Increment_X64_LocksAnIncrementThatReachesTheCounter()
+    public void EmitIncrement_X64_LocksAnIncrementThatReachesTheCounter()
     {
         CodeWriter code = new(_code);
 
-        StubAssembler.X64.Increment(code, _record);
+        StubAssembler.X64.EmitIncrement(code, _record);
 
         var instruction = Decode(code, 64);
 
@@ -35,13 +35,13 @@ public class StubAssemblerTests
         }
     }
 
-    // The x86 count addresses the record outright.
+    // EmitIncrement on x86 addresses the record outright.
     [Test]
-    public void Increment_X86_LocksAnIncrementAtTheCountersAddress()
+    public void EmitIncrement_X86_LocksAnIncrementAtTheCountersAddress()
     {
         CodeWriter code = new(new Address(Code32));
 
-        StubAssembler.X86.Increment(code, new Address(Record32));
+        StubAssembler.X86.EmitIncrement(code, new Address(Record32));
 
         var instruction = Decode(code, 32);
 
@@ -55,21 +55,21 @@ public class StubAssemblerTests
         }
     }
 
-    // The claim sets the sequence word's low bit and the skip jumps on carry to the instruction after the resolve.
+    // EmitClaim sets the sequence word's low bit. The jump BeginSkip emits goes to the instruction after EndSkip.
     [TestCase(true)]
     [TestCase(false)]
-    public void Claim_ThenSkipWhenClaimed_JumpsOnCarryPastTheCapture(bool is64Bit)
+    public void EmitClaim_ThenBeginSkip_JumpsOnCarryPastTheCapture(bool is64Bit)
     {
-        var assembler = StubAssembler.For(is64Bit);
+        var assembler = StubAssembler.Create(is64Bit);
         CodeWriter code = new(is64Bit ? _code : new Address(Code32));
 
-        assembler.Claim(code, is64Bit ? _record : new Address(Record32));
-        int skip = assembler.SkipWhenClaimed(code);
+        assembler.EmitClaim(code, is64Bit ? _record : new Address(Record32));
+        int skip = assembler.BeginSkip(code);
         code.Emit(0x90, 0x90, 0x90);
-        assembler.ResolveSkip(code, skip);
+        assembler.EndSkip(code, skip);
 
-        var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.Written.ToArray()));
-        decoder.IP = code.Here.Value - (ulong)code.Length;
+        var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.WrittenSpan.ToArray()));
+        decoder.IP = CodeStart(code);
         decoder.Decode(out var claim);
         decoder.Decode(out var jump);
 
@@ -79,31 +79,31 @@ public class StubAssemblerTests
             Assert.That(claim.HasLockPrefix, Is.True);
             Assert.That(claim.Immediate8, Is.Zero);
             Assert.That(jump.Mnemonic, Is.EqualTo(Mnemonic.Jb));
-            Assert.That(jump.NearBranchTarget, Is.EqualTo(code.Here.Value));
+            Assert.That(jump.NearBranchTarget, Is.EqualTo(code.NextAddress.Value));
         }
     }
 
-    // The resume copies the displaced bytes and jumps back to the instruction after them.
+    // EmitResume copies the displaced bytes and jumps back to the instruction after them.
     [TestCase(true)]
     [TestCase(false)]
-    public void Resume_EmitsTheOriginalBytesThenJumpsBack(bool is64Bit)
+    public void EmitResume_EmitsTheOriginalBytesThenJumpsBack(bool is64Bit)
     {
-        var assembler = StubAssembler.For(is64Bit);
+        var assembler = StubAssembler.Create(is64Bit);
         CodeWriter code = new(is64Bit ? _code : new Address(Code32));
         byte[] original = [0x48, 0x83, 0xEC, 0x28, 0x90];
-        Address continueAt = new(is64Bit ? 0x140001005UL : 0x400005UL);
+        Address resumeAddress = new(is64Bit ? 0x140001005UL : 0x400005UL);
 
-        assembler.Resume(code, original, continueAt);
+        assembler.EmitResume(code, original, resumeAddress);
 
-        var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.Written[original.Length..].ToArray()));
+        var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.WrittenSpan[original.Length..].ToArray()));
         decoder.IP = CodeStart(code) + (ulong)original.Length;
         decoder.Decode(out var jump);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(code.Written[..original.Length].ToArray(), Is.EqualTo(original));
+            Assert.That(code.WrittenSpan[..original.Length].ToArray(), Is.EqualTo(original));
             Assert.That(jump.Mnemonic, Is.EqualTo(Mnemonic.Jmp));
-            Assert.That(jump.NearBranchTarget, Is.EqualTo(continueAt.Value));
+            Assert.That(jump.NearBranchTarget, Is.EqualTo(resumeAddress.Value));
         }
     }
 
@@ -112,11 +112,11 @@ public class StubAssemblerTests
     [TestCase(1, 4, Register.EDX)]
     [TestCase(2, 2, Register.R8W)]
     [TestCase(3, 1, Register.R9L)]
-    public void CaptureRegister_X64_StoresTheArgumentRegisterAtItsWidth(int index, int width, Register register)
+    public void EmitRegisterCapture_X64_StoresTheArgumentRegisterAtItsWidth(int index, int width, Register register)
     {
         CodeWriter code = new(_code);
 
-        var result = StubAssembler.X64.CaptureRegister(code, _record + 0x18, index, width, indirect: false);
+        var result = StubAssembler.X64.EmitRegisterCapture(code, _record + 0x18, index, width, indirect: false);
         var instruction = Decode(code, 64);
 
         using (Assert.EnterMultipleScope())
@@ -133,14 +133,14 @@ public class StubAssemblerTests
     [TestCase(true, 2, 32)]
     [TestCase(false, 0, 8)]
     [TestCase(false, 3, 20)]
-    public void CaptureStack_ReadsTheSlotAboveTheReturnAddress(bool is64Bit, int index, int displacement)
+    public void EmitStackCapture_ReadsTheSlotAboveTheReturnAddress(bool is64Bit, int index, int displacement)
     {
-        var assembler = StubAssembler.For(is64Bit);
+        var assembler = StubAssembler.Create(is64Bit);
         CodeWriter code = new(is64Bit ? _code : new Address(Code32));
 
-        var result = assembler.CaptureStack(code, (is64Bit ? _record : new Address(Record32)) + 0x18, index, is64Bit ? 8 : 4, indirect: false);
+        var result = assembler.EmitStackCapture(code, (is64Bit ? _record : new Address(Record32)) + 0x18, index, is64Bit ? 8 : 4, indirect: false);
 
-        var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.Written.ToArray()));
+        var decoder = Decoder.Create(is64Bit ? 64 : 32, new ByteArrayCodeReader(code.WrittenSpan.ToArray()));
         decoder.IP = CodeStart(code);
         decoder.Decode(out var push);
         decoder.Decode(out var load);
@@ -158,11 +158,11 @@ public class StubAssemblerTests
     // A float capture stores the xmm register without touching the accumulator.
     [TestCase(0, 4, Mnemonic.Movss)]
     [TestCase(3, 8, Mnemonic.Movsd)]
-    public void CaptureFloatRegister_X64_StoresTheXmmRegister(int index, int width, Mnemonic mnemonic)
+    public void EmitFloatRegisterCapture_X64_StoresTheXmmRegister(int index, int width, Mnemonic mnemonic)
     {
         CodeWriter code = new(_code);
 
-        var result = StubAssembler.X64.CaptureFloatRegister(code, _record + 0x18, index, width, indirect: false);
+        var result = StubAssembler.X64.EmitFloatRegisterCapture(code, _record + 0x18, index, width, indirect: false);
         var instruction = Decode(code, 64);
 
         using (Assert.EnterMultipleScope())
@@ -183,13 +183,13 @@ public class StubAssemblerTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(StubAssembler.X86.CaptureRegister(x86, new Address(Record32), 0, 4, false).IsErr, Is.True);
-            Assert.That(StubAssembler.X86.CaptureFloatRegister(x86, new Address(Record32), 0, 4, false).IsErr, Is.True);
-            Assert.That(StubAssembler.X64.CaptureRegister(x64, _record, 4, 8, false).IsErr, Is.True);
-            Assert.That(StubAssembler.X64.CaptureFloatRegister(x64, _record, 4, 8, false).IsErr, Is.True);
-            Assert.That(StubAssembler.X64.CaptureFloatRegister(x64, _record, 0, 2, false).IsErr, Is.True);
-            Assert.That(StubAssembler.X64.CaptureFloatRegister(x64, _record, 0, 8, true).IsErr, Is.True);
-            Assert.That(StubAssembler.X64.CaptureStack(x64, _record, -1, 8, false).IsErr, Is.True);
+            Assert.That(StubAssembler.X86.EmitRegisterCapture(x86, new Address(Record32), 0, 4, false).IsErr, Is.True);
+            Assert.That(StubAssembler.X86.EmitFloatRegisterCapture(x86, new Address(Record32), 0, 4, false).IsErr, Is.True);
+            Assert.That(StubAssembler.X64.EmitRegisterCapture(x64, _record, 4, 8, false).IsErr, Is.True);
+            Assert.That(StubAssembler.X64.EmitFloatRegisterCapture(x64, _record, 4, 8, false).IsErr, Is.True);
+            Assert.That(StubAssembler.X64.EmitFloatRegisterCapture(x64, _record, 0, 2, false).IsErr, Is.True);
+            Assert.That(StubAssembler.X64.EmitFloatRegisterCapture(x64, _record, 0, 8, true).IsErr, Is.True);
+            Assert.That(StubAssembler.X64.EmitStackCapture(x64, _record, -1, 8, false).IsErr, Is.True);
             Assert.That(x64.Length, Is.Zero);
             Assert.That(x86.Length, Is.Zero);
         }
@@ -209,15 +209,15 @@ public class StubAssemblerTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(BitConverter.ToInt32(code.Written.ToArray(), 1), Is.EqualTo(0x100 - 5));
-            Assert.That(BitConverter.ToInt32(code.Written.ToArray(), 10), Is.EqualTo((int)(_record - (_code + 15))));
-            Assert.That(code.Here, Is.EqualTo(_code + 15));
+            Assert.That(BitConverter.ToInt32(code.WrittenSpan.ToArray(), 1), Is.EqualTo(0x100 - 5));
+            Assert.That(BitConverter.ToInt32(code.WrittenSpan.ToArray(), 10), Is.EqualTo((int)(_record - (_code + 15))));
+            Assert.That(code.NextAddress, Is.EqualTo(_code + 15));
         }
     }
 
     private static Instruction Decode(CodeWriter code, int bitness)
     {
-        var decoder = Decoder.Create(bitness, new ByteArrayCodeReader(code.Written.ToArray()));
+        var decoder = Decoder.Create(bitness, new ByteArrayCodeReader(code.WrittenSpan.ToArray()));
         decoder.IP = CodeStart(code);
         decoder.Decode(out var instruction);
 
@@ -228,6 +228,6 @@ public class StubAssemblerTests
 
     private static ulong CodeStart(CodeWriter code)
     {
-        return code.Here.Value - (ulong)code.Length;
+        return code.NextAddress.Value - (ulong)code.Length;
     }
 }

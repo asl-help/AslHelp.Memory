@@ -167,7 +167,7 @@ public class Wow64PatchWriterTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(adopted.WasAdopted, Is.True);
+            Assert.That(adopted.IsAdopted, Is.True);
             Assert.That(adopted.Slot, Is.EqualTo(installed.Slot));
             Assert.That(adopted.Record, Is.EqualTo(installed.Record));
         }
@@ -179,8 +179,8 @@ public class Wow64PatchWriterTests
     {
         CaptureLayout layout = new(
         [
-            new(CaptureSource.Stack, 0, CaptureLayout.PayloadAt, 4),
-            new(CaptureSource.Stack, 1, CaptureLayout.PayloadAt + 4, 4),
+            new(CaptureSource.Stack, 0, CaptureLayout.PayloadOffset, 4),
+            new(CaptureSource.Stack, 1, CaptureLayout.PayloadOffset + 4, 4),
         ]);
 
         using var session = new PatchSession(_child.Memory, _writer);
@@ -194,7 +194,7 @@ public class Wow64PatchWriterTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(rose, Is.True);
-            Assert.That(patch.Captures, Is.True);
+            Assert.That(patch.HasCaptures, Is.True);
             Assert.That(patch.TryReadCall(_child.Memory, payload).Unwrap(), Is.True);
             Assert.That(_child.Process.HasExited, Is.False);
         }
@@ -204,7 +204,7 @@ public class Wow64PatchWriterTests
     [Test]
     public void Install_Child32BitRegisterCapture_ReturnsNoRegistersAndLeavesTickAlone()
     {
-        CaptureLayout layout = new([new(CaptureSource.Register, 0, CaptureLayout.PayloadAt, 4)]);
+        CaptureLayout layout = new([new(CaptureSource.Register, 0, CaptureLayout.PayloadOffset, 4)]);
 
         using var session = new PatchSession(_child.Memory, _writer);
 

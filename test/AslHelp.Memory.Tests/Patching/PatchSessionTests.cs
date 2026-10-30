@@ -70,7 +70,7 @@ public class PatchSessionTests
             Assert.That(writer.Written[2].Address, Is.EqualTo(Entry));
             Assert.That(ReadAt(memory, Entry, 5), Is.EqualTo(Jump(Entry, patch.Slot)));
             Assert.That(session.Patches, Is.EquivalentTo([patch]));
-            Assert.That(patch.WasAdopted, Is.False);
+            Assert.That(patch.IsAdopted, Is.False);
         }
     }
 
@@ -112,7 +112,7 @@ public class PatchSessionTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(adopted.WasAdopted, Is.True);
+            Assert.That(adopted.IsAdopted, Is.True);
             Assert.That(adopted.Slot, Is.EqualTo(installed.Slot));
             Assert.That(writer.Reserved, Has.Count.EqualTo(1));
             Assert.That(writer.Written, Has.Count.EqualTo(written));

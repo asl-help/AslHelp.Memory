@@ -7,7 +7,7 @@ namespace AslHelp.Memory.Patching;
 /// <param name="Index">The register, counted in argument order, or the stack slot past the return address.</param>
 /// <param name="RecordOffset">Where in the record the value is written.</param>
 /// <param name="Width">The number of bytes of the value to write: 1, 2, 4 or 8.</param>
-/// <param name="Indirect">Whether to write what the value points at rather than the value itself.</param>
+/// <param name="IsIndirect">Whether to write what the value points at rather than the value itself.</param>
 /// <remarks>
 ///     <para>
 ///         A stub copies the value rather than where it was, since the place is only there while the call is
@@ -25,4 +25,4 @@ public readonly record struct CaptureItem(
     int Index,
     int RecordOffset,
     int Width,
-    bool Indirect = false);
+    bool IsIndirect = false);

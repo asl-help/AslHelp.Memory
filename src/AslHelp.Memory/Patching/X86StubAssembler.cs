@@ -12,7 +12,7 @@ internal sealed class X86StubAssembler : IntelStubAssembler
     public override int PointerSize => 4;
 
     /// <inheritdoc/>
-    public override void Claim(CodeWriter code, Address sequence)
+    public override void EmitClaim(CodeWriter code, Address sequence)
     {
         // lock bts dword [disp32], 0
         code.Emit(0xF0, 0x0F, 0xBA, 0x2D);
@@ -21,7 +21,7 @@ internal sealed class X86StubAssembler : IntelStubAssembler
     }
 
     /// <inheritdoc/>
-    public override void Increment(CodeWriter code, Address counter)
+    public override void EmitIncrement(CodeWriter code, Address counter)
     {
         // lock inc dword [disp32]
         code.Emit(0xF0, 0xFF, 0x05);
@@ -29,25 +29,25 @@ internal sealed class X86StubAssembler : IntelStubAssembler
     }
 
     /// <inheritdoc/>
-    public override Result CaptureRegister(CodeWriter code, Address target, int index, int width, bool indirect)
+    public override Result EmitRegisterCapture(CodeWriter code, Address target, int index, int width, bool indirect)
     {
         return CaptureError.NoRegisters();
     }
 
     /// <inheritdoc/>
-    public override Result CaptureFloatRegister(CodeWriter code, Address target, int index, int width, bool indirect)
+    public override Result EmitFloatRegisterCapture(CodeWriter code, Address target, int index, int width, bool indirect)
     {
         return CaptureError.NoRegisters();
     }
 
-    protected override void Store(CodeWriter code, Address target, int width)
+    protected override void EmitStore(CodeWriter code, Address target, int width)
     {
-        OperandSizeIfShort(code, width);
+        EmitOperandSizeIfShort(code, width);
 
         // mov [disp32], eax
         code.Emit((byte)(width == 1 ? 0xA2 : 0xA3));
         code.EmitInt32(unchecked((int)(uint)target.Value));
     }
 
-    protected override void RexW(CodeWriter code) { }
+    protected override void EmitRexW(CodeWriter code) { }
 }
