@@ -118,28 +118,28 @@ internal sealed class FakePatchWriter : IPatchWriter
 
         return Result.Ok(Suspension ?? new NoOpSuspension());
     }
+}
 
-    private sealed record TestError(string Text) : ResultError
+file sealed record TestError(string Text) : ResultError
+{
+    public override string Message => Text;
+}
+
+file sealed class NoOpSuspension : IThreadSuspension
+{
+    public bool IsComplete => true;
+
+    public bool AnyIn(MemoryRange range)
     {
-        public override string Message => Text;
+        return false;
     }
 
-    private sealed class NoOpSuspension : IThreadSuspension
+    public bool Any(Predicate<Address> match)
     {
-        public bool IsComplete => true;
+        return false;
+    }
 
-        public bool AnyIn(MemoryRange range)
-        {
-            return false;
-        }
-
-        public bool Any(Predicate<Address> match)
-        {
-            return false;
-        }
-
-        public void Dispose()
-        {
-        }
+    public void Dispose()
+    {
     }
 }

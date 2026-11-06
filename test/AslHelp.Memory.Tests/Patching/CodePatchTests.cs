@@ -846,36 +846,6 @@ public partial class CodePatchTests
         Assert.That(result.Error!.Message, Does.Contain(reason));
     }
 
-    // Maps separate ranges, because a 32-bit entry and a page above 2 GB are too far apart for 1 buffer.
-    private sealed class SparseMemory(
-        MemoryLayout layout) : IMemoryReader
-    {
-        private readonly List<(Address Start, byte[] Bytes)> _ranges = [];
-
-        public MemoryLayout Layout => layout;
-
-        public void Add(Address start, byte[] bytes)
-        {
-            byte[] padded = new byte[bytes.Length + 32];
-            bytes.CopyTo(padded, 0);
-            _ranges.Add((start, padded));
-        }
-
-        public Result Read(Address address, Span<byte> buffer)
-        {
-            foreach (var (start, bytes) in _ranges)
-            {
-                if (address >= start && address - start + buffer.Length <= bytes.Length)
-                {
-                    bytes.AsSpan((int)(address - start), buffer.Length).CopyTo(buffer);
-                    return Result.Ok();
-                }
-            }
-
-            return Errors.MemoryError.Unreadable(address, buffer.Length);
-        }
-    }
-
     private static BufferMemory CreateMemory(Address at, byte[] bytes, MemoryLayout layout)
     {
         byte[] padded = new byte[bytes.Length + 32];
@@ -895,5 +865,35 @@ public partial class CodePatchTests
         }
 
         return bytes;
+    }
+}
+
+// Maps separate ranges, because a 32-bit entry and a page above 2 GB are too far apart for 1 buffer.
+file sealed class SparseMemory(
+    MemoryLayout layout) : IMemoryReader
+{
+    private readonly List<(Address Start, byte[] Bytes)> _ranges = [];
+
+    public MemoryLayout Layout => layout;
+
+    public void Add(Address start, byte[] bytes)
+    {
+        byte[] padded = new byte[bytes.Length + 32];
+        bytes.CopyTo(padded, 0);
+        _ranges.Add((start, padded));
+    }
+
+    public Result Read(Address address, Span<byte> buffer)
+    {
+        foreach (var (start, bytes) in _ranges)
+        {
+            if (address >= start && address - start + buffer.Length <= bytes.Length)
+            {
+                bytes.AsSpan((int)(address - start), buffer.Length).CopyTo(buffer);
+                return Result.Ok();
+            }
+        }
+
+        return Errors.MemoryError.Unreadable(address, buffer.Length);
     }
 }

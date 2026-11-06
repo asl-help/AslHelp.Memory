@@ -159,20 +159,20 @@ public class MemoryLocatorTests
     {
         return new("test.dll", null, memory.Range);
     }
+}
 
-    private sealed class RecordingSink : ILogSink
+file sealed class RecordingSink : ILogSink
+{
+    public List<string> Messages { get; } = [];
+
+    public LogLevel MinimumLevel => LogLevel.Trace;
+
+    public void Emit(in LogEvent e, int indent)
     {
-        public List<string> Messages { get; } = [];
+        Messages.Add(e.Message);
+    }
 
-        public LogLevel MinimumLevel => LogLevel.Trace;
-
-        public void Emit(in LogEvent e, int indent)
-        {
-            Messages.Add(e.Message);
-        }
-
-        public void Dispose()
-        {
-        }
+    public void Dispose()
+    {
     }
 }

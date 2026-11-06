@@ -107,20 +107,20 @@ public class GlobalPointerTests
     {
         return new("test.dll", null, memory.Range);
     }
+}
 
-    private sealed class CountingMemory(
-        BufferMemory inner) : IMemoryReader
+file sealed class CountingMemory(
+    BufferMemory inner) : IMemoryReader
+{
+    public BufferMemory Inner => inner;
+
+    public int Reads { get; private set; }
+
+    public MemoryLayout Layout => inner.Layout;
+
+    public Result Read(Address address, Span<byte> buffer)
     {
-        public BufferMemory Inner => inner;
-
-        public int Reads { get; private set; }
-
-        public MemoryLayout Layout => inner.Layout;
-
-        public Result Read(Address address, Span<byte> buffer)
-        {
-            Reads++;
-            return inner.Read(address, buffer);
-        }
+        Reads++;
+        return inner.Read(address, buffer);
     }
 }

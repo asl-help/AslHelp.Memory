@@ -141,18 +141,18 @@ public class ScanTests
             Assert.That(memory.Reads, Is.EqualTo(1));
         }
     }
+}
 
-    private sealed class CountingMemory(
-        BufferMemory memory) : IMemoryReader
+file sealed class CountingMemory(
+    BufferMemory memory) : IMemoryReader
+{
+    public int Reads { get; private set; }
+
+    public MemoryLayout Layout => memory.Layout;
+
+    public Result Read(Address address, Span<byte> buffer)
     {
-        public int Reads { get; private set; }
-
-        public MemoryLayout Layout => memory.Layout;
-
-        public Result Read(Address address, Span<byte> buffer)
-        {
-            Reads++;
-            return memory.Read(address, buffer);
-        }
+        Reads++;
+        return memory.Read(address, buffer);
     }
 }
