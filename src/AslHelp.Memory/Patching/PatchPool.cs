@@ -134,7 +134,7 @@ internal sealed class PatchPool
         if (_rented == 0 || slot != Base + CodeBase + ((_rented - 1) * CodePatch.SlotSize))
         {
             throw new ArgumentException(
-                $"The slot at {slot} is not the one handed out last, which is the only one that can be given back.",
+                SR.FormatSlotNotLast(slot),
                 nameof(slot));
         }
 

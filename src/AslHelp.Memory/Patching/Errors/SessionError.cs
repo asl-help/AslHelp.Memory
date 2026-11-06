@@ -21,7 +21,7 @@ internal sealed record SessionError : ResultError
     /// </returns>
     public static SessionError Closed()
     {
-        return new("The patch session is closed, so nothing more is written into the target.");
+        return new(SR.SessionClosed);
     }
 
     /// <summary>
@@ -32,6 +32,6 @@ internal sealed record SessionError : ResultError
     /// </returns>
     public static SessionError NoCodeToRedirect()
     {
-        return new("There is no compiled code at that address to redirect, so there is nothing to hook.");
+        return new(SR.SessionNoCodeToRedirect);
     }
 }

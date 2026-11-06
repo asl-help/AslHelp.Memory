@@ -161,7 +161,7 @@ public static class Scan
 
         if (steps.Length == 0)
         {
-            throw new ArgumentException("A chained scan needs at least 1 step.", nameof(steps));
+            throw new ArgumentException(SR.ChainedScanNeedsStep, nameof(steps));
         }
 
         return StepsIterator(reader, ranges, steps);

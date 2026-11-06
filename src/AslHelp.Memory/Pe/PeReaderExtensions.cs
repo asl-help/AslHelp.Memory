@@ -55,7 +55,7 @@ public static class PeReaderExtensions
 
             if ((uint)directory >= IMAGE_NUMBEROF_DIRECTORY_ENTRIES)
             {
-                throw new ArgumentOutOfRangeException(nameof(directory), directory, "A data directory has 16 entries.");
+                throw new ArgumentOutOfRangeException(nameof(directory), directory, SR.DataDirectoryOutOfRange);
             }
 
             return ReadDataDirectory(reader, module, (int)directory);

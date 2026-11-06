@@ -200,7 +200,7 @@ public class CodePatchInstallTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsErr, Is.True);
-            Assert.That(result.Error!.Message, Does.Contain("no slot left"));
+            Assert.That(result.Error!.Message, Does.Contain("doesn't have a slot left"));
             Assert.That(writer.Written, Is.Empty);
             Assert.That(pool.IsFull, Is.True);
             Assert.That(attempted, Is.Null);

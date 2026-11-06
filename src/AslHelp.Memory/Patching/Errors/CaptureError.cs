@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace AslHelp.Memory.Patching.Errors;
 
 /// <summary>
@@ -22,7 +24,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError UnstorableWidth(int width)
     {
-        return new($"A capture of {width} bytes isn't a width 1 store covers. A store covers 1, 2, 4 or 8 bytes.");
+        return new(SR.FormatCaptureUnstorableWidth(width));
     }
 
     /// <summary>
@@ -35,7 +37,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError WidthBeyondPointer(int width, int pointerWidth)
     {
-        return new($"A capture of {width} bytes is wider than the {pointerWidth} bytes a store on this target moves.");
+        return new(SR.FormatCaptureWidthBeyondPointer(width, pointerWidth));
     }
 
     /// <summary>
@@ -48,7 +50,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError OutsidePayload(int width, int recordOffset)
     {
-        return new($"A capture of {width} bytes at 0x{recordOffset:X} falls outside the record's payload.");
+        return new(SR.FormatCaptureOutsidePayload(width, recordOffset.ToString("X", CultureInfo.InvariantCulture)));
     }
 
     /// <summary>
@@ -61,7 +63,9 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError OverlappingCaptures(int earlier, int later)
     {
-        return new($"The captures at 0x{earlier:X} and 0x{later:X} overlap, so 1 would be read as the other.");
+        return new(SR.FormatCaptureOverlappingCaptures(
+            earlier.ToString("X", CultureInfo.InvariantCulture),
+            later.ToString("X", CultureInfo.InvariantCulture)));
     }
 
     /// <summary>
@@ -73,7 +77,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError UnknownCaptureSource(CaptureSource source)
     {
-        return new($"A stub can't capture from {source}.");
+        return new(SR.FormatCaptureUnknownCaptureSource(source));
     }
 
     /// <summary>
@@ -84,7 +88,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError NoRegisters()
     {
-        return new("A 32-bit target passes every argument on the stack, so there's no register to capture.");
+        return new(SR.CaptureNoRegisters);
     }
 
     /// <summary>
@@ -96,7 +100,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError RegisterIndexOutOfRange(int index)
     {
-        return new($"Argument {index} isn't in a register. Only the first 4 are.");
+        return new(SR.FormatCaptureRegisterIndexOutOfRange(index));
     }
 
     /// <summary>
@@ -108,7 +112,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError FloatWidth(int width)
     {
-        return new($"A floating point value is 4 or 8 bytes wide, not {width}.");
+        return new(SR.FormatCaptureFloatWidth(width));
     }
 
     /// <summary>
@@ -119,7 +123,7 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError FloatNotAnAddress()
     {
-        return new("A floating point value can't be read through, because it isn't an address.");
+        return new(SR.CaptureFloatNotAnAddress);
     }
 
     /// <summary>
@@ -131,6 +135,6 @@ internal sealed record CaptureError : ResultError
     /// </returns>
     public static CaptureError StackIndexOutOfRange(int index)
     {
-        return new($"Stack slot {index} can't hold an argument. Slots count from 0, the first one above the return address.");
+        return new(SR.FormatCaptureStackIndexOutOfRange(index));
     }
 }

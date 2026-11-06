@@ -91,7 +91,7 @@ public partial class CodePatchTests
 
                 if (offset < 0 || offset + buffer.Length > bytes.Length)
                 {
-                    return MemoryError.Unreadable(address, buffer.Length);
+                    return new UnreadableError(address, buffer.Length);
                 }
 
                 bytes.AsSpan((int)offset, buffer.Length).CopyTo(buffer);

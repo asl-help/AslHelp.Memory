@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace AslHelp.Memory.Pe.Errors;
 
 /// <summary>
@@ -22,7 +24,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError BadDosSignature(string module)
     {
-        return new($"'{module}' doesn't start with the DOS signature 'MZ'.");
+        return new(SR.FormatPeBadDosSignature(module));
     }
 
     /// <summary>
@@ -34,7 +36,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError BadNtSignature(string module)
     {
-        return new($"The NT headers of '{module}' don't start with the NT signature 'PE'.");
+        return new(SR.FormatPeBadNtSignature(module));
     }
 
     /// <summary>
@@ -47,7 +49,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError UnknownMagic(string module, ushort magic)
     {
-        return new($"The optional header of '{module}' has the magic 0x{magic:X}. Only PE32 (0x10B) and PE32+ (0x20B) are read.");
+        return new(SR.FormatPeUnknownMagic(module, magic.ToString("X", CultureInfo.InvariantCulture)));
     }
 
     /// <summary>
@@ -61,7 +63,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError OutsideImage(string module, ulong rva, int size)
     {
-        return new($"{size} bytes at offset 0x{rva:X} reach past the image of '{module}'.");
+        return new(SR.FormatPeOutsideImage(size, rva.ToString("X", CultureInfo.InvariantCulture), module));
     }
 
     /// <summary>
@@ -73,7 +75,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError NoExportDirectory(string module)
     {
-        return new($"'{module}' has no export table.");
+        return new(SR.FormatPeNoExportDirectory(module));
     }
 
     /// <summary>
@@ -87,7 +89,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError TooManyExportNames(string module, uint count, uint max)
     {
-        return new($"The export table of '{module}' claims {count} names. At most {max} are read.");
+        return new(SR.FormatPeTooManyExportNames(module, count, max));
     }
 
     /// <summary>
@@ -101,7 +103,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError OrdinalOutOfRange(string module, string name, ushort ordinal)
     {
-        return new($"'{name}' in '{module}' points at ordinal {ordinal}, past the end of the function table.");
+        return new(SR.FormatPeOrdinalOutOfRange(name, module, ordinal));
     }
 
     /// <summary>
@@ -114,7 +116,7 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError ForwardedExport(string module, string name)
     {
-        return new($"'{name}' in '{module}' is a forwarded export. Its code is in another module.");
+        return new(SR.FormatPeForwardedExport(name, module));
     }
 
     /// <summary>
@@ -127,6 +129,6 @@ internal sealed record PeError : ResultError
     /// </returns>
     public static PeError ExportNotFound(string module, string name)
     {
-        return new($"'{module}' doesn't export '{name}'.");
+        return new(SR.FormatPeExportNotFound(module, name));
     }
 }

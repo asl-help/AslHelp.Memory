@@ -23,7 +23,7 @@ public sealed record ReadStep(
     /// </summary>
     public ReadKind Kind { get; } = Kind is ReadKind.Global or ReadKind.Displacement or ReadKind.Pointer
         ? Kind
-        : throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "A read is a global, a displacement or a pointer.");
+        : throw new ArgumentOutOfRangeException(nameof(Kind), Kind, SR.ReadKindOutOfRange);
 
     /// <summary>
     ///     Formats the step as in <c>read global plus 0x8</c>.

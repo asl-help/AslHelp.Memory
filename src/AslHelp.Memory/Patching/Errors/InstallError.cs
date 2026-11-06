@@ -23,7 +23,7 @@ internal sealed record InstallError : ResultError
     /// </returns>
     public static InstallError PoolOutOfReach(Address pool, Address entry)
     {
-        return new($"The pool at {pool} is out of a relative jump's reach of {entry}.");
+        return new(SR.FormatInstallPoolOutOfReach(pool, entry));
     }
 
     /// <summary>
@@ -35,7 +35,7 @@ internal sealed record InstallError : ResultError
     /// </returns>
     public static InstallError PoolFull(Address pool)
     {
-        return new($"The pool at {pool} has no slot left.");
+        return new(SR.FormatInstallPoolFull(pool));
     }
 
     /// <summary>
@@ -47,7 +47,7 @@ internal sealed record InstallError : ResultError
     /// </returns>
     public static InstallError StubOutOfReach(Address entry)
     {
-        return new($"The stub for {entry} is out of reach of a relative jump.");
+        return new(SR.FormatInstallStubOutOfReach(entry));
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ internal sealed record InstallError : ResultError
     /// </returns>
     public static InstallError ThreadInside(Address entry)
     {
-        return new($"A thread stands inside the instructions at {entry}. It's left alone and the next attempt asks again.");
+        return new(SR.FormatInstallThreadInside(entry));
     }
 
     /// <summary>
@@ -71,6 +71,6 @@ internal sealed record InstallError : ResultError
     /// </returns>
     public static InstallError ThreadsNotSuspended(Address entry)
     {
-        return new($"Not every thread of the target could be suspended and read, so nothing is claimed about {entry}.");
+        return new(SR.FormatInstallThreadsNotSuspended(entry));
     }
 }

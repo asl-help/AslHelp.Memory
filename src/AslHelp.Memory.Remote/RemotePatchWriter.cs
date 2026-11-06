@@ -272,7 +272,8 @@ public sealed unsafe class RemotePatchWriter : IPatchWriter, IDisposable
                 && at + size <= end
                 && Allocate((nuint)at, size) is not 0 and var page)
             {
-                Log.LogDebug($"patch reservation 0x{(ulong)page:X} for 0x{(ulong)anchor:X}");
+                // Interpolates the message, because the handler skips the lookup when the level is off.
+                Log.LogDebug($"{SR.FormatPatchReserved(new Address(page), anchor)}");
 
                 return new Address(page);
             }
@@ -308,7 +309,7 @@ public sealed unsafe class RemotePatchWriter : IPatchWriter, IDisposable
         if (!protection.TryRestore(out nuint refusedAt, out int restoreError))
         {
             Log.LogWarning(
-                $"The page at 0x{(ulong)refusedAt:X} stays executable and writable: {new Win32Exception(restoreError).Message}");
+                $"{SR.FormatPageStaysWritable(new Address(refusedAt), new Win32Exception(restoreError).Message)}");
         }
 
         if (!wrote)

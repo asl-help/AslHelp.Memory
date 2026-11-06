@@ -34,17 +34,17 @@ public sealed class LocatorRoute
 
         if (steps.Length == 0)
         {
-            throw new ArgumentException($"The route '{name}' needs at least 1 step.", nameof(steps));
+            throw new ArgumentException(SR.FormatRouteNeedsStep(name), nameof(steps));
         }
 
         for (int i = 0; i < steps.Length; i++)
         {
-            var step = steps[i] ?? throw new ArgumentNullException(nameof(steps), $"Step {i + 1} of the route '{name}' is null.");
+            var step = steps[i] ?? throw new ArgumentNullException(nameof(steps), SR.FormatRouteStepNull(i + 1, name));
 
             if (i > 0 && step is ExportStep or SearchStep { IsWholeModule: true })
             {
                 throw new ArgumentException(
-                    $"Step {i + 1} of the route '{name}' ({step}) starts from the module, so it has to be the first step.",
+                    SR.FormatRouteStepNotFirst(i + 1, name, step),
                     nameof(steps));
             }
         }

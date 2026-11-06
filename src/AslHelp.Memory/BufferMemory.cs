@@ -33,7 +33,7 @@ public sealed class BufferMemory(
     {
         if (!TryFindOffset(address, buffer.Length, out int offset))
         {
-            return MemoryError.Unreadable(address, buffer.Length);
+            return new UnreadableError(address, buffer.Length);
         }
 
         _bytes.AsSpan(offset, buffer.Length).CopyTo(buffer);

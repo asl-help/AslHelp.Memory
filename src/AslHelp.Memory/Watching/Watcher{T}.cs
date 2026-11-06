@@ -156,7 +156,7 @@ public abstract class Watcher<T>(
         if (FailAction == FailAction.Throw)
         {
             throw new InvalidOperationException(
-                $"Couldn't read {this}. {error.Message} Set FailAction to Clear or KeepOld when the value isn't always there.");
+                SR.FormatWatcherReadFailed(this, error.Message));
         }
 
         Changed = false;

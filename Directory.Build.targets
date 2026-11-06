@@ -1,0 +1,8 @@
+<Project>
+
+  <!-- Generate a typed Format method for each message with placeholders. -->
+  <ItemGroup>
+    <EmbeddedResource Update="**/*.resx" EmitFormatMethods="true" />
+  </ItemGroup>
+
+</Project>
