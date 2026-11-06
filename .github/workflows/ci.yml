@@ -21,7 +21,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
-            10.0.x
             11.0.x
 
       - name: restore
@@ -57,7 +56,6 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
-            10.0.x
             11.0.x
 
       - name: restore
@@ -101,39 +99,15 @@ jobs:
       - name: checkout
         uses: actions/checkout@v7
 
-      - name: encoding
-        shell: bash
-        run: |
-          status=0
-
-          while IFS=$'\t' read -r info path; do
-            index=${info%% *}
-
-            # Fails on a file git takes for binary because git never normalizes its line endings.
-            if [ "$index" = "i/-text" ]; then
-              echo "$path: git takes it for binary, not for text."
-              status=1
-              continue
-            fi
-
-            if [ "$(head -c 3 "$path" | od -An -tx1 | tr -d ' ')" = "efbbbf" ]; then
-              echo "$path: starts with a UTF-8 byte order mark."
-              status=1
-            fi
-
-            if ! iconv -f UTF-8 -t UTF-8 "$path" > /dev/null 2>&1; then
-              echo "$path: is not valid UTF-8."
-              status=1
-            fi
-          done < <(git -c core.quotepath=off ls-files --eol)
-
-          exit $status
-
       - name: setup dotnet
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             11.0.x
+
+      - name: encoding
+        run: >
+          dotnet eng/CheckEncoding.cs
 
       - name: restore
         run: >
