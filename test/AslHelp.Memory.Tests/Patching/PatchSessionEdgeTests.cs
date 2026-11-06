@@ -326,44 +326,44 @@ public class PatchSessionEdgeTests
             Assert.That(writer.Released, released ? Is.EquivalentTo([top]) : Is.Empty);
         }
     }
+}
 
-    // Fails the suspension numbered `FailAt` and passes every other call to the inner writer, because the fake checks
-    // its error before any hook runs and can't fail only the 1st call of a dispose.
-    private sealed class SuspendFailure(
-        FakePatchWriter inner) : IPatchWriter
+// Fails the suspension numbered `FailAt` and passes every other call to the inner writer, because the fake checks
+// its error before any hook runs and can't fail only the 1st call of a dispose.
+file sealed class SuspendFailure(
+    FakePatchWriter inner) : IPatchWriter
+{
+    public int Calls { get; private set; }
+
+    public int FailAt { get; set; } = -1;
+
+    public Result<Address> Reserve(Address anchor, int size)
     {
-        public int Calls { get; private set; }
+        return inner.Reserve(anchor, size);
+    }
 
-        public int FailAt { get; set; } = -1;
+    public Result Protect(Address address, int size, MemoryProtection protection)
+    {
+        return inner.Protect(address, size, protection);
+    }
 
-        public Result<Address> Reserve(Address anchor, int size)
+    public Result WriteCode(Address address, ReadOnlySpan<byte> buffer)
+    {
+        return inner.WriteCode(address, buffer);
+    }
+
+    public Result Release(Address reservation)
+    {
+        return inner.Release(reservation);
+    }
+
+    public Result<IThreadSuspension> SuspendThreads()
+    {
+        if (++Calls == FailAt)
         {
-            return inner.Reserve(anchor, size);
+            return FakePatchWriter.CreateError();
         }
 
-        public Result Protect(Address address, int size, MemoryProtection protection)
-        {
-            return inner.Protect(address, size, protection);
-        }
-
-        public Result WriteCode(Address address, ReadOnlySpan<byte> buffer)
-        {
-            return inner.WriteCode(address, buffer);
-        }
-
-        public Result Release(Address reservation)
-        {
-            return inner.Release(reservation);
-        }
-
-        public Result<IThreadSuspension> SuspendThreads()
-        {
-            if (++Calls == FailAt)
-            {
-                return FakePatchWriter.CreateError();
-            }
-
-            return inner.SuspendThreads();
-        }
+        return inner.SuspendThreads();
     }
 }

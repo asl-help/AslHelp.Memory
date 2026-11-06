@@ -103,13 +103,13 @@ public partial class PeReaderExtensionsTests
         return NativeMethods.GetProcAddress(module, name);
 #endif
     }
+}
 
 #if !NET
-    private static class NativeMethods
-    {
-        [DllImport("kernel32.dll", CharSet = CharSet.Ansi, BestFitMapping = false, ExactSpelling = true)]
-        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-        public static extern nint GetProcAddress(nint module, [MarshalAs(UnmanagedType.LPStr)] string name);
-    }
-#endif
+file static class NativeMethods
+{
+    [DllImport("kernel32.dll", CharSet = CharSet.Ansi, BestFitMapping = false, ExactSpelling = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    public static extern nint GetProcAddress(nint module, [MarshalAs(UnmanagedType.LPStr)] string name);
 }
+#endif

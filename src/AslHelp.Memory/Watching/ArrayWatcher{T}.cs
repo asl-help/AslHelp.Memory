@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace AslHelp.Memory.Watching;
 
@@ -10,7 +11,7 @@ namespace AslHelp.Memory.Watching;
 ///     The length is fixed when the watcher is created, because a native array doesn't store its length.
 /// </remarks>
 /// <typeparam name="T">The unmanaged element type, other than <see langword="nint"/> or <see langword="nuint"/>.</typeparam>
-public sealed partial class ArrayWatcher<T> : Watcher<T[]>
+public sealed class ArrayWatcher<T> : Watcher<T[]>
     where T : unmanaged
 {
     private readonly int _length;
@@ -32,7 +33,7 @@ public sealed partial class ArrayWatcher<T> : Watcher<T[]>
     ///     <paramref name="length"/> is negative.
     /// </exception>
     public ArrayWatcher(ITickCounter ticks, IMemoryReader reader, int length, Address address, params long[] offsets)
-        : base(ticks, reader, ContentsComparer.Instance)
+        : base(ticks, reader, ContentsComparer<T>.Instance)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(length);
         ArgumentNullException.ThrowIfNull(offsets);
@@ -62,5 +63,54 @@ public sealed partial class ArrayWatcher<T> : Watcher<T[]>
     public override string ToString()
     {
         return $"{typeof(T).Name}[{_length}] at {FormatPath(_address, _offsets)}";
+    }
+}
+
+// Compares arrays element by element, because every read creates a new array and the default comparer would
+// report a change on every tick.
+file sealed class ContentsComparer<T> : IEqualityComparer<T[]?>
+    where T : unmanaged
+{
+    public static readonly ContentsComparer<T> Instance = new();
+
+    public bool Equals(T[]? x, T[]? y)
+    {
+        if (ReferenceEquals(x, y))
+        {
+            return true;
+        }
+
+        if (x is null || y is null || x.Length != y.Length)
+        {
+            return false;
+        }
+
+        var comparer = EqualityComparer<T>.Default;
+        for (int i = 0; i < x.Length; i++)
+        {
+            if (!comparer.Equals(x[i], y[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public int GetHashCode(T[]? obj)
+    {
+        if (obj is null)
+        {
+            return 0;
+        }
+
+        var comparer = EqualityComparer<T>.Default;
+        int hash = 17;
+        foreach (var element in obj)
+        {
+            hash = unchecked((hash * 31) + comparer.GetHashCode(element));
+        }
+
+        return hash;
     }
 }
