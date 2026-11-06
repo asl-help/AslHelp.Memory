@@ -34,7 +34,7 @@ public static partial class MemoryReaderExtensions
 
             if (IsHostSized<T>())
             {
-                return MemoryError.HostSizedType(typeof(T));
+                return new HostSizedTypeError(typeof(T));
             }
 
             Span<T> value = stackalloc T[1];
@@ -77,7 +77,7 @@ public static partial class MemoryReaderExtensions
 
             if (IsHostSized<T>())
             {
-                return MemoryError.HostSizedType(typeof(T));
+                return new HostSizedTypeError(typeof(T));
             }
 
             if (count == 0)
@@ -115,7 +115,7 @@ public static partial class MemoryReaderExtensions
             var layout = reader.Layout;
             if (layout.PointerSize is < MemoryLayout.MinPointerSize or > MemoryLayout.MaxPointerSize)
             {
-                return MemoryError.PointerSizeOutOfRange(layout.PointerSize);
+                return new PointerSizeError(layout.PointerSize);
             }
 
             Span<byte> bytes = stackalloc byte[layout.PointerSize];

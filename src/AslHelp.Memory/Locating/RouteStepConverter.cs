@@ -18,7 +18,6 @@ namespace AslHelp.Memory.Locating;
 /// </remarks>
 internal sealed class RouteStepConverter : JsonConverter<RouteStep>
 {
-    private const string Kinds = "export, forward, backward, read and offset";
     private const int DefaultSize = 4;
 
     /// <summary>
@@ -43,7 +42,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
     {
         if (reader.TokenType != JsonTokenType.StartObject)
         {
-            throw new JsonException($"A step is an object whose key names what it does. Use {Kinds}.");
+            throw new JsonException(SR.StepNotObject);
         }
 
         string? kind = null;
@@ -88,12 +87,12 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
                 }
                 default:
                 {
-                    throw new JsonException($"'{key}' isn't a step or a step setting. Use {Kinds}, with within, size and offset.");
+                    throw new JsonException(SR.FormatStepKeyUnknown(key));
                 }
             }
         }
 
-        kind ??= offset is not null ? "offset" : throw new JsonException($"A step needs 1 key that names what it does. Use {Kinds}.");
+        kind ??= offset is not null ? "offset" : throw new JsonException(SR.StepKindMissing);
 
         ThrowIfPresent(kind, "within", within is not null && kind is not ("forward" or "backward"));
         ThrowIfPresent(kind, "size", size is not null && kind is not "read");
@@ -160,14 +159,14 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
     {
         return kind is null
             ? key
-            : throw new JsonException($"A step does 1 thing, but this one is both '{kind}' and '{key}'. Write them as 2 steps.");
+            : throw new JsonException(SR.FormatStepHasTwoKinds(kind, key));
     }
 
     private static void ThrowIfPresent(string kind, string key, bool present)
     {
         if (present)
         {
-            throw new JsonException($"The '{kind}' step doesn't take '{key}'.");
+            throw new JsonException(SR.FormatStepKeyNotTaken(kind, key));
         }
     }
 
@@ -175,7 +174,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
     {
         if (!ScanPattern.TryParse(signature, out var pattern))
         {
-            throw new JsonException($"'{signature}' of the '{kind}' step isn't a signature. Write hex pairs, as in '48 8B ?? 05'.");
+            throw new JsonException(SR.FormatStepSignatureInvalid(signature, kind));
         }
 
         if (within is null)
@@ -185,7 +184,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
 
         if (within <= 0)
         {
-            throw new JsonException($"'within' of the '{kind}' step is {within}. Write a positive size, or leave it out to search the whole module.");
+            throw new JsonException(SR.FormatStepWithinInvalid(kind, within));
         }
 
         return kind == "backward" ? ScanWindow.Backward(within.Value).Create(pattern) : ScanWindow.Forward(within.Value).Create(pattern);
@@ -198,12 +197,12 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
             "global" => ReadKind.Global,
             "displacement" => ReadKind.Displacement,
             "pointer" => ReadKind.Pointer,
-            _ => throw new JsonException($"'{value}' isn't a read. Use global, displacement or pointer."),
+            _ => throw new JsonException(SR.FormatReadKindUnknown(value)),
         };
 
         if (kind == ReadKind.Pointer && size is not null)
         {
-            throw new JsonException("A 'pointer' read uses the target's pointer size, so it doesn't take 'size'. Only 'global' and 'displacement' do.");
+            throw new JsonException(SR.PointerReadTakesNoSize);
         }
 
         return kind;
@@ -213,7 +212,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
     {
         return reader.TokenType == JsonTokenType.String
             ? reader.GetString()!
-            : throw new JsonException($"'{key}' is a string.");
+            : throw new JsonException(SR.FormatKeyNotString(key));
     }
 
     // A signature is 1 string or an array of pieces, so a document can put each instruction on its own line.
@@ -226,7 +225,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
 
         if (reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new JsonException($"'{key}' is a signature string or an array of its pieces.");
+            throw new JsonException(SR.FormatKeyNotSignature(key));
         }
 
         List<string> pieces = [];
@@ -237,7 +236,7 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
 
         return pieces.Count > 0
             ? string.Join(" ", pieces)
-            : throw new JsonException($"'{key}' is an empty array. Write the pieces of a signature.");
+            : throw new JsonException(SR.FormatKeyEmptyArray(key));
     }
 
     private static int ReadNumber(ref Utf8JsonReader reader, string key)
@@ -246,12 +245,12 @@ internal sealed class RouteStepConverter : JsonConverter<RouteStep>
         {
             return reader.TryGetInt32(out int number)
                 ? number
-                : throw new JsonException($"'{key}' doesn't fit a 32-bit integer.");
+                : throw new JsonException(SR.FormatKeyNotInt32(key));
         }
 
         return reader.TokenType == JsonTokenType.String
             ? HexNumber.Parse(reader.GetString()!, $"'{key}'")
-            : throw new JsonException($"'{key}' is a number or a '0x' hex string.");
+            : throw new JsonException(SR.FormatKeyNotNumber(key));
     }
 
     // A hex string can't be negative, so a negative number is written as a JSON number.

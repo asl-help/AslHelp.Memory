@@ -16,12 +16,12 @@ internal sealed class MemoryLocatorConverter : JsonConverter<MemoryLocator>
     {
         if (reader.TokenType == JsonTokenType.StartArray)
         {
-            throw new JsonException("""A locator has named routes, not steps. Write it as { "<route name>": [ <steps> ] }.""");
+            throw new JsonException(SR.LocatorHasSteps);
         }
 
         if (reader.TokenType != JsonTokenType.StartObject)
         {
-            throw new JsonException("A locator is an object whose keys are route names and whose values are arrays of steps.");
+            throw new JsonException(SR.LocatorNotObject);
         }
 
         List<LocatorRoute> routes = [];
@@ -65,7 +65,7 @@ internal sealed class MemoryLocatorConverter : JsonConverter<MemoryLocator>
     {
         if (reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new JsonException($"The route '{name}' is an array of steps.");
+            throw new JsonException(SR.FormatRouteNotArray(name));
         }
 
         try
@@ -75,7 +75,7 @@ internal sealed class MemoryLocatorConverter : JsonConverter<MemoryLocator>
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
-            throw new JsonException($"The route '{name}' is invalid. {ex.Message}", ex);
+            throw new JsonException(SR.FormatRouteInvalid(name, ex.Message), ex);
         }
     }
 }

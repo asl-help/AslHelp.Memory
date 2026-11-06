@@ -119,7 +119,8 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
                 }
 
                 _installed[entry] = adopted;
-                _logger?.LogDebug($"Adopted the patch standing at {entry}.");
+                // Interpolates the message, because the handler skips the lookup when the level is off.
+                _logger?.LogDebug($"{SR.FormatPatchAdopted(entry)}");
 
                 return adopted;
             }
@@ -167,7 +168,7 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
             if (!_writer.SuspendThreads().TryUnwrap(out var suspension, out var error))
             {
                 _logger?.LogWarning(
-                    $"The target's threads could not be suspended for the batch, so each write suspends them itself. {error.Message}");
+                    $"{SR.FormatBatchNotSuspended(error.Message)}");
 
                 return null;
             }
@@ -277,7 +278,7 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
     {
         if (patch.Restore(_memory, _writer).TryUnwrapErr(out var error))
         {
-            _logger?.LogWarning($"The method at {patch.Entry} could not be put back. {error.Message}");
+            _logger?.LogWarning($"{SR.FormatMethodNotRestored(patch.Entry, error.Message)}");
             unrestored.Add(patch);
         }
     }
@@ -302,7 +303,7 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
                 }
 
                 _logger?.LogWarning(
-                    $"The pool at {pool.Base} stays in the target because the method at {patch.Entry} still jumps into it.");
+                    $"{SR.FormatPoolStaysJumpedInto(pool.Base, patch.Entry)}");
 
                 _pools.RemoveAt(i);
 
@@ -318,7 +319,7 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
         if (!_writer.SuspendThreads().TryUnwrap(out var suspension, out var error))
         {
             _logger?.LogWarning(
-                $"{_pools.Count} pool(s) stay in the target because its threads could not be suspended to check them. {error.Message}");
+                $"{SR.FormatPoolsStayNotChecked(_pools.Count, error.Message)}");
 
             _pools.Clear();
 
@@ -331,7 +332,7 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
             {
                 if (suspension.Any(pool.Contains))
                 {
-                    _logger?.LogWarning($"The pool at {pool.Base} stays in the target because a thread stands inside it.");
+                    _logger?.LogWarning($"{SR.FormatPoolStaysThreadInside(pool.Base)}");
 
                     continue;
                 }
@@ -341,14 +342,14 @@ public sealed class PatchSession : IPatchInstaller, IDisposable
                 if (!suspension.IsComplete)
                 {
                     _logger?.LogWarning(
-                        $"The pool at {pool.Base} stays in the target because not every thread could be suspended and read.");
+                        $"{SR.FormatPoolStaysNotSuspended(pool.Base)}");
 
                     continue;
                 }
 
                 if (_writer.Release(pool.Base).TryUnwrapErr(out var releaseError))
                 {
-                    _logger?.LogWarning($"The pool at {pool.Base} could not be released. {releaseError.Message}");
+                    _logger?.LogWarning($"{SR.FormatPoolNotReleased(pool.Base, releaseError.Message)}");
                 }
             }
         }

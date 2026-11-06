@@ -143,7 +143,7 @@ internal static class SessionTargets
         public Result Read(Address address, Span<byte> buffer)
         {
             return Fail && address == _word
-                ? MemoryError.Unreadable(address, buffer.Length)
+                ? new UnreadableError(address, buffer.Length)
                 : inner.Read(address, buffer);
         }
     }

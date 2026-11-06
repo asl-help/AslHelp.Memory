@@ -24,7 +24,7 @@ internal sealed record LocatorError : ResultError
     /// </returns>
     public static LocatorError StepFailed(int number, RouteStep step, ResultError reason)
     {
-        return new($"Step {number} ({step}) failed. {reason.Message}");
+        return new(SR.FormatLocatorStepFailed(number, step, reason.Message));
     }
 
     /// <summary>
@@ -37,7 +37,7 @@ internal sealed record LocatorError : ResultError
     /// </returns>
     public static LocatorError Ambiguous(Address first, Address other)
     {
-        return new($"The route reaches both {first} and {other}. A search of the whole module has to lead to 1 address.");
+        return new(SR.FormatLocatorAmbiguous(first, other));
     }
 
     /// <summary>
@@ -49,7 +49,7 @@ internal sealed record LocatorError : ResultError
     /// </returns>
     public static LocatorError NoRouteLocated(string failures)
     {
-        return new($"No route located the address. {failures}");
+        return new(SR.FormatLocatorNoRouteLocated(failures));
     }
 
     /// <summary>
@@ -62,8 +62,9 @@ internal sealed record LocatorError : ResultError
     /// </returns>
     public static LocatorError NotFoundNear(SearchStep step, Address anchor)
     {
-        string side = step.Scan.Kind == Scanning.ScanStepKind.Backward ? "before" : "from";
-        return new($"'{step.Scan.Pattern}' isn't in the {step.Scan.WindowSize} bytes {side} {anchor}.");
+        return new(step.Scan.Kind == Scanning.ScanStepKind.Backward
+            ? SR.FormatLocatorNotFoundBefore(step.Scan.Pattern, step.Scan.WindowSize, anchor)
+            : SR.FormatLocatorNotFoundFrom(step.Scan.Pattern, step.Scan.WindowSize, anchor));
     }
 
     /// <summary>
@@ -76,6 +77,6 @@ internal sealed record LocatorError : ResultError
     /// </returns>
     public static LocatorError NotFoundInModule(SearchStep step, MemoryModule module)
     {
-        return new($"'{step.Scan.Pattern}' isn't in '{module.Name}'.");
+        return new(SR.FormatLocatorNotFoundInModule(step.Scan.Pattern, module.Name));
     }
 }

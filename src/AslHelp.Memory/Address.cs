@@ -155,7 +155,7 @@ public readonly record struct Address(
         {
             null => 1,
             Address other => CompareTo(other),
-            _ => throw new ArgumentException($"The object isn't an {nameof(Address)}.", nameof(obj)),
+            _ => throw new ArgumentException(SR.ObjectNotAddress, nameof(obj)),
         };
     }
 
@@ -208,7 +208,7 @@ public readonly record struct Address(
 
         return TryParse(text, out var address)
             ? address
-            : throw new FormatException($"'{text}' isn't an address. An address is 0x followed by hex or a decimal number.");
+            : throw new FormatException(SR.FormatTextNotAddress(text));
     }
 
     /// <summary>

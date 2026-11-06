@@ -82,8 +82,8 @@ public readonly struct ScanPattern : IEquatable<ScanPattern>
         }
 
         throw new FormatException(CountDigits(signature) == 0
-            ? "The signature is empty. Write the bytes to search for as hex pairs, as in '48 8B ?? 05'."
-            : $"'{signature}' has an odd number of digits. Each byte is 2 hex digits or wildcards, as in '48 8B ?? 05'.");
+            ? SR.SignatureEmpty
+            : SR.FormatSignatureOddDigits(signature));
     }
 
     /// <summary>

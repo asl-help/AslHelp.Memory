@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AdoptAnotherVersion" xml:space="preserve">
+    <value>The entry has a patch from another version of this library, which only that version can remove.</value>
+  </data>
+  <data name="AdoptEntryMismatch" xml:space="preserve">
+    <value>The page claims a different entry, so nothing is assumed about it.</value>
+  </data>
+  <data name="AdoptForeignPatch" xml:space="preserve">
+    <value>The entry is redirected by something other than this library, so it's left alone.</value>
+  </data>
+  <data name="AdoptNoCaptures" xml:space="preserve">
+    <value>The patch at {0} captures nothing, so there's no call to read.</value>
+  </data>
+  <data name="AdoptNotRedirected" xml:space="preserve">
+    <value>The entry isn't redirected.</value>
+  </data>
+  <data name="AdoptStolenLengthOutOfRange" xml:space="preserve">
+    <value>The page records {0} displaced bytes, which isn't a length this library writes, so it's left alone.</value>
+  </data>
+  <data name="AdoptUnexpectedPatchLength" xml:space="preserve">
+    <value>The page records a {0}-byte patch, and this library only writes a 5-byte jump, so it's left alone.</value>
+  </data>
+  <data name="AdoptUnknownLayout" xml:space="preserve">
+    <value>The patch at {0} was adopted, and its layout isn't known, so its calls can't be read.</value>
+  </data>
+  <data name="AdoptUnreadableEntry" xml:space="preserve">
+    <value>The code at {0} couldn't be read, so no patch there can be adopted.</value>
+  </data>
+  <data name="BatchNotSuspended" xml:space="preserve">
+    <value>The target's threads could not be suspended for the batch, so each write suspends them itself. {0}</value>
+  </data>
+  <data name="CaptureFloatNotAnAddress" xml:space="preserve">
+    <value>A floating point value can't be read through, because it isn't an address.</value>
+  </data>
+  <data name="CaptureFloatWidth" xml:space="preserve">
+    <value>A floating point value is 4 or 8 bytes wide, not {0}.</value>
+  </data>
+  <data name="CaptureNoRegisters" xml:space="preserve">
+    <value>A 32-bit target passes every argument on the stack, so there's no register to capture.</value>
+  </data>
+  <data name="CaptureOutsidePayload" xml:space="preserve">
+    <value>A capture of {0} bytes at 0x{1} falls outside the record's payload.</value>
+  </data>
+  <data name="CaptureOverlappingCaptures" xml:space="preserve">
+    <value>The captures at 0x{0} and 0x{1} overlap, so 1 would be read as the other.</value>
+  </data>
+  <data name="CaptureRegisterIndexOutOfRange" xml:space="preserve">
+    <value>Argument {0} isn't in a register. Only the first 4 are.</value>
+  </data>
+  <data name="CaptureStackIndexOutOfRange" xml:space="preserve">
+    <value>Stack slot {0} can't take an argument. Slots count from 0, the first one above the return address.</value>
+  </data>
+  <data name="CaptureUnknownCaptureSource" xml:space="preserve">
+    <value>A stub can't capture from {0}.</value>
+  </data>
+  <data name="CaptureUnstorableWidth" xml:space="preserve">
+    <value>A capture of {0} bytes isn't a width 1 store covers. A store covers 1, 2, 4 or 8 bytes.</value>
+  </data>
+  <data name="CaptureWidthBeyondPointer" xml:space="preserve">
+    <value>A capture of {0} bytes is wider than the {1} bytes a store on this target moves.</value>
+  </data>
+  <data name="ChainedScanNeedsStep" xml:space="preserve">
+    <value>A chained scan needs at least 1 step.</value>
+  </data>
+  <data name="DataDirectoryOutOfRange" xml:space="preserve">
+    <value>A data directory has 16 entries.</value>
+  </data>
+  <data name="HostSizedType" xml:space="preserve">
+    <value>'{0}' is as wide as a pointer on the host, not in the target. Use ReadPointer instead.</value>
+  </data>
+  <data name="InstallPoolFull" xml:space="preserve">
+    <value>The pool at {0} doesn't have a slot left.</value>
+  </data>
+  <data name="InstallPoolOutOfReach" xml:space="preserve">
+    <value>The pool at {0} is out of a relative jump's reach of {1}.</value>
+  </data>
+  <data name="InstallStubOutOfReach" xml:space="preserve">
+    <value>The stub for {0} is out of reach of a relative jump.</value>
+  </data>
+  <data name="InstallThreadInside" xml:space="preserve">
+    <value>A thread stands inside the instructions at {0}. It's left alone and the next attempt checks again.</value>
+  </data>
+  <data name="InstallThreadsNotSuspended" xml:space="preserve">
+    <value>Not every thread of the target could be suspended and read, so nothing is claimed about {0}.</value>
+  </data>
+  <data name="KeyEmptyArray" xml:space="preserve">
+    <value>'{0}' is an empty array. Write the pieces of a signature.</value>
+  </data>
+  <data name="KeyNotInt32" xml:space="preserve">
+    <value>'{0}' doesn't fit a 32-bit integer.</value>
+  </data>
+  <data name="KeyNotNumber" xml:space="preserve">
+    <value>'{0}' is a number or a '0x' hex string.</value>
+  </data>
+  <data name="KeyNotSignature" xml:space="preserve">
+    <value>'{0}' is a signature string or an array of its pieces.</value>
+  </data>
+  <data name="KeyNotString" xml:space="preserve">
+    <value>'{0}' is a string.</value>
+  </data>
+  <data name="LocatorAmbiguous" xml:space="preserve">
+    <value>The route reaches both {0} and {1}. A search of the whole module has to lead to 1 address.</value>
+  </data>
+  <data name="LocatorHasSteps" xml:space="preserve">
+    <value>A locator has named routes, not steps. Write it as { "&lt;route name&gt;": [ &lt;steps&gt; ] }.</value>
+  </data>
+  <data name="LocatorNeedsRoute" xml:space="preserve">
+    <value>A locator needs at least 1 route.</value>
+  </data>
+  <data name="LocatorNoRouteLocated" xml:space="preserve">
+    <value>No route located the address. {0}</value>
+  </data>
+  <data name="LocatorNotFoundBefore" xml:space="preserve">
+    <value>'{0}' isn't in the {1} bytes before {2}.</value>
+  </data>
+  <data name="LocatorNotFoundFrom" xml:space="preserve">
+    <value>'{0}' isn't in the {1} bytes from {2}.</value>
+  </data>
+  <data name="LocatorNotFoundInModule" xml:space="preserve">
+    <value>'{0}' isn't in '{1}'.</value>
+  </data>
+  <data name="LocatorNotObject" xml:space="preserve">
+    <value>A locator is an object whose keys are route names and whose values are arrays of steps.</value>
+  </data>
+  <data name="LocatorStepFailed" xml:space="preserve">
+    <value>Step {0} ({1}) failed. {2}</value>
+  </data>
+  <data name="MethodNotRestored" xml:space="preserve">
+    <value>The method at {0} could not be put back. {1}</value>
+  </data>
+  <data name="ModuleNotFound" xml:space="preserve">
+    <value>No module named '{0}' is loaded.</value>
+  </data>
+  <data name="ObjectNotAddress" xml:space="preserve">
+    <value>The object isn't an Address.</value>
+  </data>
+  <data name="PatchAdopted" xml:space="preserve">
+    <value>Adopted the patch standing at {0}.</value>
+  </data>
+  <data name="PeBadDosSignature" xml:space="preserve">
+    <value>'{0}' doesn't start with the DOS signature 'MZ'.</value>
+  </data>
+  <data name="PeBadNtSignature" xml:space="preserve">
+    <value>The NT headers of '{0}' don't start with the NT signature 'PE'.</value>
+  </data>
+  <data name="PeExportNotFound" xml:space="preserve">
+    <value>'{0}' doesn't export '{1}'.</value>
+  </data>
+  <data name="PeForwardedExport" xml:space="preserve">
+    <value>'{0}' in '{1}' is a forwarded export. Its code is in another module.</value>
+  </data>
+  <data name="PeNoExportDirectory" xml:space="preserve">
+    <value>'{0}' doesn't have an export table.</value>
+  </data>
+  <data name="PeOrdinalOutOfRange" xml:space="preserve">
+    <value>'{0}' in '{1}' points at ordinal {2}, past the end of the function table.</value>
+  </data>
+  <data name="PeOutsideImage" xml:space="preserve">
+    <value>{0} bytes at offset 0x{1} reach past the image of '{2}'.</value>
+  </data>
+  <data name="PeTooManyExportNames" xml:space="preserve">
+    <value>The export table of '{0}' claims {1} names. At most {2} are read.</value>
+  </data>
+  <data name="PeUnknownMagic" xml:space="preserve">
+    <value>The optional header of '{0}' has the magic 0x{1}. Only PE32 (0x10B) and PE32+ (0x20B) are read.</value>
+  </data>
+  <data name="PlanEntryStraddlesWord" xml:space="preserve">
+    <value>The entry at {0} crosses an 8-byte boundary, so the jump can't be written in 1 store.</value>
+  </data>
+  <data name="PlanPositionDependentEntry" xml:space="preserve">
+    <value>The instructions at {0} depend on their address, so they can't be moved into a stub.</value>
+  </data>
+  <data name="PlanStubTooLarge" xml:space="preserve">
+    <value>The stub for {0} is {1} bytes, and a slot has room for {2}. Capture less.</value>
+  </data>
+  <data name="PlanUnreadableEntry" xml:space="preserve">
+    <value>The code at {0} couldn't be read.</value>
+  </data>
+  <data name="PlanUnrecognizedPrologue" xml:space="preserve">
+    <value>The instructions at {0} couldn't be decoded, so the jump could end up inside 1 of them.</value>
+  </data>
+  <data name="PlanUnsupportedArchitecture" xml:space="preserve">
+    <value>A target with {0}-byte pointers can't be patched. Patching covers x86 and x64.</value>
+  </data>
+  <data name="PointerReadTakesNoSize" xml:space="preserve">
+    <value>A 'pointer' read uses the target's pointer size, so it doesn't take 'size'. Only 'global' and 'displacement' do.</value>
+  </data>
+  <data name="PointerSizeOutOfRange" xml:space="preserve">
+    <value>A pointer size of {0} bytes is outside 1 to 8 bytes.</value>
+  </data>
+  <data name="PointerWidthOutOfRange" xml:space="preserve">
+    <value>A pointer is 1 to 8 bytes wide.</value>
+  </data>
+  <data name="PoolNotReleased" xml:space="preserve">
+    <value>The pool at {0} could not be released. {1}</value>
+  </data>
+  <data name="PoolsStayNotChecked" xml:space="preserve">
+    <value>{0} pool(s) stay in the target because its threads could not be suspended to check them. {1}</value>
+  </data>
+  <data name="PoolStaysJumpedInto" xml:space="preserve">
+    <value>The pool at {0} stays in the target because the method at {1} still jumps into it.</value>
+  </data>
+  <data name="PoolStaysNotSuspended" xml:space="preserve">
+    <value>The pool at {0} stays in the target because not every thread could be suspended and read.</value>
+  </data>
+  <data name="PoolStaysThreadInside" xml:space="preserve">
+    <value>The pool at {0} stays in the target because a thread stands inside it.</value>
+  </data>
+  <data name="ReadKindOutOfRange" xml:space="preserve">
+    <value>A read is a global, a displacement or a pointer.</value>
+  </data>
+  <data name="ReadKindUnknown" xml:space="preserve">
+    <value>'{0}' isn't a read. Use global, displacement or pointer.</value>
+  </data>
+  <data name="RouteFailed" xml:space="preserve">
+    <value>Route '{0}' failed. {1}</value>
+  </data>
+  <data name="RouteFailure" xml:space="preserve">
+    <value>'{0}': {1}</value>
+  </data>
+  <data name="RouteInvalid" xml:space="preserve">
+    <value>The route '{0}' is invalid. {1}</value>
+  </data>
+  <data name="RouteLocated" xml:space="preserve">
+    <value>Route '{0}' located {1}.</value>
+  </data>
+  <data name="RouteNameDuplicate" xml:space="preserve">
+    <value>2 routes are named '{0}'. Give each route its own name.</value>
+  </data>
+  <data name="RouteNeedsStep" xml:space="preserve">
+    <value>The route '{0}' needs at least 1 step.</value>
+  </data>
+  <data name="RouteNotArray" xml:space="preserve">
+    <value>The route '{0}' is an array of steps.</value>
+  </data>
+  <data name="RouteStepNotFirst" xml:space="preserve">
+    <value>Step {0} of the route '{1}' ({2}) starts from the module, so it has to be the first step.</value>
+  </data>
+  <data name="RouteStepNull" xml:space="preserve">
+    <value>Step {0} of the route '{1}' is null.</value>
+  </data>
+  <data name="ScanUnsupportedPointerSize" xml:space="preserve">
+    <value>A relative reference is followed at a pointer size of 4 or 8 bytes, not {0}.</value>
+  </data>
+  <data name="SearchScanWithoutPattern" xml:space="preserve">
+    <value>The scan step doesn't have a pattern. Make it with Scan.Create or with Create on a ScanWindow.Forward or ScanWindow.Backward window.</value>
+  </data>
+  <data name="SearchScanWithResolver" xml:space="preserve">
+    <value>The scan step of a search step can't have a resolver. Add a read step after it instead.</value>
+  </data>
+  <data name="SessionClosed" xml:space="preserve">
+    <value>The patch session is closed, so nothing more is written into the target.</value>
+  </data>
+  <data name="SessionNoCodeToRedirect" xml:space="preserve">
+    <value>That address doesn't have compiled code to redirect, so there is nothing to hook.</value>
+  </data>
+  <data name="SignatureEmpty" xml:space="preserve">
+    <value>The signature is empty. Write the bytes to search for as hex pairs, as in '48 8B ?? 05'.</value>
+  </data>
+  <data name="SignatureOddDigits" xml:space="preserve">
+    <value>'{0}' has an odd number of digits. Each byte is 2 hex digits or wildcards, as in '48 8B ?? 05'.</value>
+  </data>
+  <data name="SlotNotLast" xml:space="preserve">
+    <value>The slot at {0} is not the one handed out last, which is the only one that can be given back.</value>
+  </data>
+  <data name="StepHasTwoKinds" xml:space="preserve">
+    <value>A step does 1 thing, but this one is both '{0}' and '{1}'. Write them as 2 steps.</value>
+  </data>
+  <data name="StepKeyNotTaken" xml:space="preserve">
+    <value>The '{0}' step doesn't take '{1}'.</value>
+  </data>
+  <data name="StepKeyUnknown" xml:space="preserve">
+    <value>'{0}' isn't a step or a step setting. Use export, forward, backward, read and offset, with within, size and offset.</value>
+  </data>
+  <data name="StepKindMissing" xml:space="preserve">
+    <value>A step needs 1 key that names what it does. Use export, forward, backward, read and offset.</value>
+  </data>
+  <data name="StepNotObject" xml:space="preserve">
+    <value>A step is an object whose key names what it does. Use export, forward, backward, read and offset.</value>
+  </data>
+  <data name="StepSignatureInvalid" xml:space="preserve">
+    <value>'{0}' of the '{1}' step isn't a signature. Write hex pairs, as in '48 8B ?? 05'.</value>
+  </data>
+  <data name="StepWithinInvalid" xml:space="preserve">
+    <value>'within' of the '{0}' step is {1}. Write a positive size, or leave it out to search the whole module.</value>
+  </data>
+  <data name="StringTypeNotDefined" xml:space="preserve">
+    <value>The string type isn't defined.</value>
+  </data>
+  <data name="TerminatorNotFound" xml:space="preserve">
+    <value>The string at {0} doesn't have a terminator within {1} characters.</value>
+  </data>
+  <data name="TextNotAddress" xml:space="preserve">
+    <value>'{0}' isn't an address. An address is 0x followed by hex or a decimal number.</value>
+  </data>
+  <data name="Unreadable" xml:space="preserve">
+    <value>Couldn't read {0} bytes at {1}.</value>
+  </data>
+  <data name="Unwritable" xml:space="preserve">
+    <value>Couldn't write {0} bytes at {1}.</value>
+  </data>
+  <data name="WatcherReadFailed" xml:space="preserve">
+    <value>Couldn't read {0}. {1} Set FailAction to Clear or KeepOld when the value isn't always there.</value>
+  </data>
+</root>

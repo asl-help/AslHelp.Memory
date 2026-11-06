@@ -22,7 +22,7 @@ public readonly record struct MemoryLayout
     {
         if (pointerSize is < MinPointerSize or > MaxPointerSize)
         {
-            throw new ArgumentOutOfRangeException(nameof(pointerSize), pointerSize, "A pointer is 1 to 8 bytes wide.");
+            throw new ArgumentOutOfRangeException(nameof(pointerSize), pointerSize, SR.PointerWidthOutOfRange);
         }
 
         PointerSize = pointerSize;

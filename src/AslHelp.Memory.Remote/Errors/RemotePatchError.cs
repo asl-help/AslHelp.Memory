@@ -22,7 +22,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError CannotSuspendItself()
     {
-        return new("A process cannot suspend its own threads.");
+        return new(SR.PatchCannotSuspendItself);
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError ThreadsUnlisted()
     {
-        return new("The target's threads could not be listed.");
+        return new(SR.PatchThreadsUnlisted);
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError NoThreads()
     {
-        return new("The target's thread list was empty.");
+        return new(SR.PatchNoThreads);
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError HandleReleased()
     {
-        return new("The patch handle has been released.");
+        return new(SR.PatchHandleReleased);
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError Unaddressable(Address address)
     {
-        return new($"0x{(ulong)address:X} is above what a 32-bit process can address.");
+        return new(SR.FormatPatchUnaddressable(address));
     }
 
     /// <summary>
@@ -79,7 +79,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError OutOfReach(Address anchor)
     {
-        return new($"No memory within reach of 0x{(ulong)anchor:X} was free, so nothing there can be hooked.");
+        return new(SR.FormatPatchOutOfReach(anchor));
     }
 
     /// <summary>
@@ -92,7 +92,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError NotProtected(Address address, string reason)
     {
-        return new($"The protection at 0x{(ulong)address:X} could not be changed: {reason}");
+        return new(SR.FormatPatchNotProtected(address, reason));
     }
 
     /// <summary>
@@ -106,7 +106,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError NotReleased(Address page, string reason)
     {
-        return new($"The reservation at 0x{(ulong)page:X} could not be released: {reason}");
+        return new(SR.FormatPatchNotReleased(page, reason));
     }
 
     /// <summary>
@@ -119,7 +119,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError NotMadeExecutable(Address address, string reason)
     {
-        return new($"0x{(ulong)address:X} could not be made executable: {reason}");
+        return new(SR.FormatPatchNotMadeExecutable(address, reason));
     }
 
     /// <summary>
@@ -132,7 +132,7 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError CodeNotWritten(Address address, string reason)
     {
-        return new($"The code at 0x{(ulong)address:X} could not be written: {reason}");
+        return new(SR.FormatPatchCodeNotWritten(address, reason));
     }
 
     /// <summary>
@@ -146,6 +146,6 @@ internal sealed record RemotePatchError : ResultError
     /// </returns>
     public static RemotePatchError CodePartlyWritten(Address address, int wanted, nuint written)
     {
-        return new($"Only {written} of {wanted} bytes were written at 0x{(ulong)address:X}.");
+        return new(SR.FormatPatchCodePartlyWritten(written, wanted, address));
     }
 }

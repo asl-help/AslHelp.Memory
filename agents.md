@@ -19,6 +19,9 @@ The `net4.8.1` tests only run on Windows.
 - Text files are UTF-8 without a BOM. Git stores them with LF line endings.
 - `readme.md`, `changelog.md` and this file change in the same commit as the code they describe.
 - Commit subjects are lowercase and imperative, with no body and no trailers.
+- Exception messages, `ResultError` messages and log lines sit in the `SR.resx` of their project, with entries sorted by key. `Microsoft.CodeAnalysis.ResxSourceGenerator` generates the `SR` class, with a property for each message and a `Format` method for each message with placeholders, such as `SR.FormatUnreadable(size, address)`. The generator counts only plain placeholders, so a message writes `0x{0}` with the digits as text or `{0}` with an `Address`, never `{0:X}`.
+- A log call interpolates its message, as in `log.LogDebug($"{SR.FormatRouteLocated(name, address)}")`, so nothing loads when the level is off.
+- An error from a failed read is a record that keeps its values and formats on `Message`, because reads run per tick and fail often. A resource lookup costs about 100 ns, so a read path never formats a message it doesn't need.
 
 ## Fixture
 

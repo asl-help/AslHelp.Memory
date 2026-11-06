@@ -22,7 +22,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError UnknownLayout(Address entry)
     {
-        return new($"The patch at {entry} was adopted, and its layout isn't known, so its calls can't be read.");
+        return new(SR.FormatAdoptUnknownLayout(entry));
     }
 
     /// <summary>
@@ -34,7 +34,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError UnreadableEntry(Address entry)
     {
-        return new($"The code at {entry} couldn't be read, so no patch there can be adopted.");
+        return new(SR.FormatAdoptUnreadableEntry(entry));
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError UnexpectedPatchLength(int length)
     {
-        return new($"The page records a {length}-byte patch, and this library only writes a 5-byte jump, so it's left alone.");
+        return new(SR.FormatAdoptUnexpectedPatchLength(length));
     }
 
     /// <summary>
@@ -57,7 +57,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError NotRedirected()
     {
-        return new("The entry isn't redirected.");
+        return new(SR.AdoptNotRedirected);
     }
 
     /// <summary>
@@ -68,7 +68,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError ForeignPatch()
     {
-        return new("The entry is redirected by something other than this library, so it's left alone.");
+        return new(SR.AdoptForeignPatch);
     }
 
     /// <summary>
@@ -79,7 +79,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError AnotherVersion()
     {
-        return new("The entry has a patch from another version of this library, which only that version can remove.");
+        return new(SR.AdoptAnotherVersion);
     }
 
     /// <summary>
@@ -90,7 +90,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError EntryMismatch()
     {
-        return new("The page claims a different entry, so nothing is assumed about it.");
+        return new(SR.AdoptEntryMismatch);
     }
 
     /// <summary>
@@ -102,7 +102,7 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError StolenLengthOutOfRange(int stolen)
     {
-        return new($"The page records {stolen} displaced bytes, which isn't a length this library writes, so it's left alone.");
+        return new(SR.FormatAdoptStolenLengthOutOfRange(stolen));
     }
 
     /// <summary>
@@ -114,6 +114,6 @@ internal sealed record AdoptError : ResultError
     /// </returns>
     public static AdoptError NoCaptures(Address entry)
     {
-        return new($"The patch at {entry} captures nothing, so there's no call to read.");
+        return new(SR.FormatAdoptNoCaptures(entry));
     }
 }

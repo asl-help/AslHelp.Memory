@@ -235,7 +235,7 @@ public class PatchSessionTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsErr, Is.True);
-            Assert.That(result.Error!.Message, Does.Contain("no compiled code"));
+            Assert.That(result.Error!.Message, Does.Contain("doesn't have compiled code"));
             Assert.That(writer.Reserved, Is.Empty);
             Assert.That(writer.Suspensions, Is.Zero);
             Assert.That(session.Patches, Is.Empty);

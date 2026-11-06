@@ -35,7 +35,7 @@ public sealed class MemoryLocator
 
         if (routes.Length == 0)
         {
-            throw new ArgumentException("A locator needs at least 1 route.", nameof(routes));
+            throw new ArgumentException(SR.LocatorNeedsRoute, nameof(routes));
         }
 
         _routes = new(routes.Length, StringComparer.Ordinal);
@@ -47,7 +47,7 @@ public sealed class MemoryLocator
 
             if (!_routes.TryAdd(route.Name, route))
             {
-                throw new ArgumentException($"2 routes are named '{route.Name}'. Give each route its own name.", nameof(routes));
+                throw new ArgumentException(SR.FormatRouteNameDuplicate(route.Name), nameof(routes));
             }
         }
     }
@@ -83,18 +83,19 @@ public sealed class MemoryLocator
         {
             if (route.Locate(reader, module).TryUnwrap(out var address, out var error))
             {
-                logger?.LogDebug($"Route '{route.Name}' located {address}.");
+                // Interpolates the message, because the handler skips the lookup when the level is off.
+                logger?.LogDebug($"{SR.FormatRouteLocated(route.Name, address)}");
                 return address;
             }
 
-            logger?.LogTrace($"Route '{route.Name}' failed. {error.Message}");
+            logger?.LogTrace($"{SR.FormatRouteFailed(route.Name, error.Message)}");
 
             if (failures.Length > 0)
             {
                 _ = failures.Append(' ');
             }
 
-            _ = failures.Append('\'').Append(route.Name).Append("': ").Append(error.Message);
+            _ = failures.Append(SR.FormatRouteFailure(route.Name, error.Message));
         }
 
         return LocatorError.NoRouteLocated(failures.ToString());

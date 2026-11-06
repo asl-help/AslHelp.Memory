@@ -89,14 +89,14 @@ public sealed record SearchStep(
         if (scan.Pattern.Length == 0)
         {
             throw new ArgumentException(
-                "The scan step has no pattern. Make it with Scan.Create or with Create on a ScanWindow.Forward or ScanWindow.Backward window.",
+                SR.SearchScanWithoutPattern,
                 nameof(scan));
         }
 
         if (scan.Resolver is not null)
         {
             throw new ArgumentException(
-                "The scan step of a search step can't have a resolver. Add a read step after it instead.",
+                SR.SearchScanWithResolver,
                 nameof(scan));
         }
 

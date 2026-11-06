@@ -118,7 +118,7 @@ public static partial class MemoryReaderExtensions
                 filled += size;
             }
 
-            return MemoryError.TerminatorNotFound(address, maxLength);
+            return new UnterminatedStringError(address, maxLength);
         }
     }
 
@@ -128,7 +128,7 @@ public static partial class MemoryReaderExtensions
         {
             StringType.Ascii or StringType.Utf8 => sizeof(byte),
             StringType.Utf16 => sizeof(char),
-            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "The string type isn't defined."),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, SR.StringTypeNotDefined),
         };
     }
 

@@ -894,6 +894,6 @@ file sealed class SparseMemory(
             }
         }
 
-        return Errors.MemoryError.Unreadable(address, buffer.Length);
+        return new Errors.UnreadableError(address, buffer.Length);
     }
 }

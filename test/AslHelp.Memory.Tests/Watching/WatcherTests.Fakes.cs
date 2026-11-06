@@ -29,7 +29,7 @@ public partial class WatcherTests
 
         public Result Read(Address address, Span<byte> buffer)
         {
-            return Fail ? MemoryError.Unreadable(address, buffer.Length) : inner.Read(address, buffer);
+            return Fail ? new UnreadableError(address, buffer.Length) : inner.Read(address, buffer);
         }
     }
 

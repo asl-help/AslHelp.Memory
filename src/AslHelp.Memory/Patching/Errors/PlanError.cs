@@ -22,7 +22,7 @@ internal sealed record PlanError : ResultError
     /// </returns>
     public static PlanError UnsupportedArchitecture(int pointerSize)
     {
-        return new($"A target with {pointerSize}-byte pointers can't be patched. Patching covers x86 and x64.");
+        return new(SR.FormatPlanUnsupportedArchitecture(pointerSize));
     }
 
     /// <summary>
@@ -34,7 +34,7 @@ internal sealed record PlanError : ResultError
     /// </returns>
     public static PlanError UnreadableEntry(Address entry)
     {
-        return new($"The code at {entry} couldn't be read.");
+        return new(SR.FormatPlanUnreadableEntry(entry));
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ internal sealed record PlanError : ResultError
     /// </returns>
     public static PlanError EntryStraddlesWord(Address entry)
     {
-        return new($"The entry at {entry} crosses an 8-byte boundary, so the jump can't be written in 1 store.");
+        return new(SR.FormatPlanEntryStraddlesWord(entry));
     }
 
     /// <summary>
@@ -58,7 +58,7 @@ internal sealed record PlanError : ResultError
     /// </returns>
     public static PlanError UnrecognizedPrologue(Address entry)
     {
-        return new($"The instructions at {entry} couldn't be decoded, so the jump could land inside 1 of them.");
+        return new(SR.FormatPlanUnrecognizedPrologue(entry));
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ internal sealed record PlanError : ResultError
     /// </returns>
     public static PlanError PositionDependentEntry(Address entry)
     {
-        return new($"The instructions at {entry} depend on their address, so they can't be moved into a stub.");
+        return new(SR.FormatPlanPositionDependentEntry(entry));
     }
 
     /// <summary>
@@ -84,6 +84,6 @@ internal sealed record PlanError : ResultError
     /// </returns>
     public static PlanError StubTooLarge(Address entry, int wants, int room)
     {
-        return new($"The stub for {entry} is {wants} bytes, and a slot has room for {room}. Capture less.");
+        return new(SR.FormatPlanStubTooLarge(entry, wants, room));
     }
 }

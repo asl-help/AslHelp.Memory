@@ -53,7 +53,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         _handle = PInvoke.OpenProcess_SafeHandle(Access, false, (uint)id);
         if (_handle.IsInvalid)
         {
-            throw new Win32Exception(Marshal.GetLastWin32Error(), $"Couldn't open process {id} for memory access.");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), SR.FormatProcessNotOpened(id));
         }
 
         if (!Environment.Is64BitOperatingSystem)
@@ -67,7 +67,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             int error = Marshal.GetLastWin32Error();
             _handle.Dispose();
 
-            throw new Win32Exception(error, $"Couldn't find whether process {id} runs under WOW64.");
+            throw new Win32Exception(error, SR.FormatWow64NotFound(id));
         }
 
         Layout = isWow64 ? MemoryLayout.X86 : MemoryLayout.X64;
@@ -91,7 +91,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         if (!TryGetHostPointer(address, out void* pointer))
         {
-            return RemoteMemoryError.Unreadable(address, buffer.Length);
+            return new RemoteUnreadableError(address, buffer.Length);
         }
 
         if (buffer.IsEmpty)
@@ -103,7 +103,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         return success && read == (nuint)buffer.Length
             ? Result.Ok()
-            : RemoteMemoryError.Unreadable(address, buffer.Length);
+            : new RemoteUnreadableError(address, buffer.Length);
     }
 
     /// <inheritdoc/>

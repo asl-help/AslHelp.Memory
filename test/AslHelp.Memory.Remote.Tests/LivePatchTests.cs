@@ -128,7 +128,7 @@ public class LivePatchTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.UnwrapErr().Message, Does.Contain("no compiled code"));
+            Assert.That(result.UnwrapErr().Message, Does.Contain("doesn't have compiled code"));
             Assert.That(session.Patches, Is.Empty);
         }
     }

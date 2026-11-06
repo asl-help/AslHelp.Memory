@@ -22,6 +22,6 @@ internal sealed record ScanError : ResultError
     /// </returns>
     public static ScanError UnsupportedPointerSize(byte pointerSize)
     {
-        return new($"A relative reference is followed at a pointer size of 4 or 8 bytes, not {pointerSize}.");
+        return new(SR.FormatScanUnsupportedPointerSize(pointerSize));
     }
 }
