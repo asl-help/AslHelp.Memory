@@ -5,6 +5,11 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="global.json" />
+    <File Path="justfile" />
+  </Folder>
+
+  <Folder Name="/eng/">
+    <File Path="eng/CheckEncoding.cs" />
   </Folder>
 
   <Folder Name="/src/">

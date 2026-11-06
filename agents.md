@@ -3,10 +3,14 @@
 ## Commands
 
 ```
-dotnet build
-dotnet test
-dotnet format --severity info --verify-no-changes
+just build
+just test
+just format
+just encoding
+just check
 ```
+
+`just check` runs the encoding check, the format check, the build and the tests, as CI does. Run it before a commit.
 
 The `net4.8.1` tests only run on Windows.
 
@@ -15,10 +19,6 @@ The `net4.8.1` tests only run on Windows.
 - Text files are UTF-8 without a BOM. Git stores them with LF line endings.
 - `readme.md`, `changelog.md` and this file change in the same commit as the code they describe.
 - Commit subjects are lowercase and imperative, with no body and no trailers.
-
-## Samples
-
-Each sample lives in `samples/<name>/` and is a single-file app whose entry point is `<name>.cs`, starting with `#!/usr/bin/env dotnet`. Its `expected.sh` runs the commands from its readme and writes their output into `expected/`. CI formats every entry point, runs every `expected.sh` and fails when `expected/` changes. A new sample also gets a `<Folder>` in `AslHelp.Memory.slnx`.
 
 ## Fixture
 
