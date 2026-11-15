@@ -1,5 +1,8 @@
 # AslHelp.Memory
 
+[![AslHelp.Memory on NuGet](https://img.shields.io/nuget/vpre/AslHelp.Memory?label=AslHelp.Memory)](https://www.nuget.org/packages/AslHelp.Memory)
+[![AslHelp.Memory.Remote on NuGet](https://img.shields.io/nuget/vpre/AslHelp.Memory.Remote?label=AslHelp.Memory.Remote)](https://www.nuget.org/packages/AslHelp.Memory.Remote)
+
 AslHelp.Memory is a .NET library for reading another process's memory in any pointer size and byte order. The `AslHelp.Memory.Remote` package reads a running Windows process.
 
 ## Install
