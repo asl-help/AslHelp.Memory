@@ -146,6 +146,82 @@ public partial class WatcherTests
         }
     }
 
+    // Error is the error of a failed read under every fail action that doesn't throw, until a good read clears it.
+    [TestCase(FailAction.Clear)]
+    [TestCase(FailAction.KeepOld)]
+    public void Error_AfterAFailedRead_IsTheErrorUntilAGoodRead(FailAction failAction)
+    {
+        SwitchableMemory memory = new(Memory(5));
+        ManualTicks ticks = new();
+
+        MemoryWatcher<int> watcher = new(ticks, memory, Address.Zero) { FailAction = failAction };
+        Assert.That(watcher.Error, Is.Null);
+
+        ticks.Value++;
+        memory.Fail = true;
+        _ = watcher.Current;
+        Assert.That(watcher.Error?.Message, Is.Not.Null.And.Not.Empty);
+
+        ticks.Value++;
+        memory.Fail = false;
+        _ = watcher.Current;
+        Assert.That(watcher.Error, Is.Null);
+    }
+
+    // Error doesn't read, so it stays the error of the last read until a value is read again.
+    [Test]
+    public void Error_InANewTick_DoesNotRead()
+    {
+        SwitchableMemory memory = new(Memory(5));
+        ManualTicks ticks = new();
+
+        MemoryWatcher<int> watcher = new(ticks, memory, Address.Zero);
+        _ = watcher.Current;
+
+        ticks.Value++;
+        memory.Fail = true;
+        Assert.That(watcher.Error, Is.Null);
+
+        _ = watcher.Current;
+        Assert.That(watcher.Error, Is.Not.Null);
+    }
+
+    // Throw sets the error before it throws.
+    [Test]
+    public void Error_AfterAThrowingRead_IsTheError()
+    {
+        SwitchableMemory memory = new(Memory(5)) { Fail = true };
+        ManualTicks ticks = new();
+
+        MemoryWatcher<int> watcher = new(ticks, memory, Address.Zero) { FailAction = FailAction.Throw };
+        var thrown = Assert.Throws<InvalidOperationException>(() => _ = watcher.Current);
+
+        Assert.That(thrown.Message, Does.Contain(watcher.Error!.Message));
+    }
+
+    // A disabled watcher doesn't read, so the error of its last read stays.
+    [Test]
+    public void Error_Disabled_KeepsTheErrorOfTheLastRead()
+    {
+        SwitchableMemory memory = new(Memory(5)) { Fail = true };
+        ManualTicks ticks = new();
+
+        MemoryWatcher<int> watcher = new(ticks, memory, Address.Zero);
+        _ = watcher.Current;
+        var error = watcher.Error;
+
+        watcher.Enabled = false;
+        ticks.Value++;
+        memory.Fail = false;
+        _ = watcher.Current;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(error, Is.Not.Null);
+            Assert.That(watcher.Error, Is.SameAs(error));
+        }
+    }
+
     // Throw puts the watcher and the error of the read in the message.
     [Test]
     public void FailedRead_Throw_Throws()

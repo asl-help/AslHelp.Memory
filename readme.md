@@ -110,7 +110,7 @@ The first read only fills the values, so `Changed` can only be `true` from the s
 
 `ChangedTo` and `ChangedFrom` check what the value changed to or from. `StringWatcher` and `ArrayWatcher<T>` work the same way for a string and for a fixed number of values.
 
-When a read fails, `FailAction` picks what happens. `Clear` resets the values, so the next good read only fills them again. `KeepOld` keeps them and `Throw` throws with the error from the read.
+When a read fails, `FailAction` picks what happens. `Clear` resets the values, so the next good read only fills them again. `KeepOld` keeps them and `Throw` throws with the error from the read. `Error` has the error of the latest read under every action and is `null` after a good read. It doesn't read itself.
 
 ### Patching
 

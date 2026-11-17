@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 ## [Unreleased]
 
 ### Added
+- `Watcher.Error` for the error of the latest read, so a failed read under `FailAction.Clear` or `KeepOld` still shows why it failed.
 - `CaptureLayout`, `CaptureItem` and `CaptureSource` in `AslHelp.Memory.Patching` for the arguments a patched entry copies out of each call.
 - `CodePatch.Adopt`, `ReadCount` and `TryReadCall` for finding a patch at an entry and reading how often it ran and what the last call passed.
 - `IPatchInstaller` in `AslHelp.Memory.Patching` for what redirects an entry into a stub and keeps the target still while several watchers ask at once.
