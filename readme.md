@@ -31,6 +31,8 @@ var name = memory.ReadString(module.Range.Start + 0x2000, StringType.Utf8);
 var player = memory.Deref(module.Range.Start + 0x3000, 0x10, 0x8);
 ```
 
+`StringType` is `Auto`, `Ascii`, `Utf8` or `Utf16`. With a length, `Auto` picks UTF-16 when the first 2 chars look like Latin text in UTF-16 and UTF-8 otherwise. Up to a terminator, it reads UTF-8.
+
 `ReadArray` reads several values at once and `ReadPointer` reads 1 pointer in the target's pointer size.
 
 `(nint)address` and `(Address)pointer` convert between an `Address` and a native pointer. `(nint)address` throws `OverflowException` when the address doesn't fit the host's pointer size.

@@ -514,6 +514,28 @@ public partial class WatcherTests
         }
     }
 
+    // An auto-detected string follows the encoding of the bytes on each read.
+    [Test]
+    public void Current_AnAutoString_FollowsTheEncoding()
+    {
+        byte[] bytes = Encoding.Unicode.GetBytes("hi\0");
+        BufferMemory memory = new(Address.Zero, bytes, MemoryLayout.X64);
+        ManualTicks ticks = new();
+
+        StringWatcher watcher = new(ticks, memory, 3, StringType.Auto, Address.Zero);
+
+        Assert.That(watcher.Current, Is.EqualTo("hi"));
+
+        ticks.Value++;
+        "ok\0"u8.CopyTo(bytes);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(watcher.Changed, Is.True);
+            Assert.That(watcher.Current, Is.EqualTo("ok"));
+        }
+    }
+
     private static BufferMemory Memory(int value)
     {
         return new(Address.Zero, BitConverter.GetBytes(value), MemoryLayout.X64);
