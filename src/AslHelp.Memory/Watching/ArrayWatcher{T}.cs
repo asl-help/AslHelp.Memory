@@ -14,9 +14,10 @@ namespace AslHelp.Memory.Watching;
 public sealed class ArrayWatcher<T> : Watcher<T[]>
     where T : unmanaged
 {
-    private readonly int _length;
     private readonly Address _address;
+    private readonly int _length;
     private readonly long[] _offsets;
+    private readonly IMemoryReader _reader;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ArrayWatcher{T}"/> class.
@@ -33,25 +34,27 @@ public sealed class ArrayWatcher<T> : Watcher<T[]>
     ///     <paramref name="length"/> is negative.
     /// </exception>
     public ArrayWatcher(ITickCounter ticks, IMemoryReader reader, int length, Address address, params long[] offsets)
-        : base(ticks, reader, ContentsComparer<T>.Instance)
+        : base(ticks, ContentsComparer<T>.Instance)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         ArgumentOutOfRangeException.ThrowIfNegative(length);
         ArgumentNullException.ThrowIfNull(offsets);
 
+        _reader = reader;
         _length = length;
         _address = address;
         _offsets = offsets;
     }
 
     /// <inheritdoc/>
-    protected override Result<T[]> Read(IMemoryReader reader)
+    protected override Result<T[]> Read()
     {
-        if (!reader.Deref(_address, _offsets).TryUnwrap(out var address, out var error))
+        if (!_reader.Deref(_address, _offsets).TryUnwrap(out var address, out var error))
         {
             return error;
         }
 
-        return reader.ReadArray<T>(address, _length);
+        return _reader.ReadArray<T>(address, _length);
     }
 
     /// <summary>
@@ -62,7 +65,7 @@ public sealed class ArrayWatcher<T> : Watcher<T[]>
     /// </returns>
     public override string ToString()
     {
-        return $"{typeof(T).Name}[{_length}] at {FormatPath(_address, _offsets)}";
+        return $"{typeof(T).Name}[{_length}] at {PointerPathFormatter.Format(_address, _offsets)}";
     }
 }
 

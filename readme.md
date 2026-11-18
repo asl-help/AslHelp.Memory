@@ -33,6 +33,8 @@ var player = memory.Deref(module.Range.Start + 0x3000, 0x10, 0x8);
 
 `ReadArray` reads several values at once and `ReadPointer` reads 1 pointer in the target's pointer size.
 
+`(nint)address` and `(Address)pointer` convert between an `Address` and a native pointer. `(nint)address` throws `OverflowException` when the address doesn't fit the host's pointer size.
+
 `GetModule` finds a module by name. `GetFileHash` returns the SHA256 of a module's file. Each `MemoryModule` reads its file once. `GetModule` returns a new one per call, so keep the module to reuse the hash.
 
 ### Scanning
@@ -113,6 +115,23 @@ The first read only fills the values, so `Changed` can only be `true` from the s
 `ChangedTo` and `ChangedFrom` check what the value changed to or from. `StringWatcher` and `ArrayWatcher<T>` work the same way for a string and for a fixed number of values.
 
 When a read fails, `FailAction` picks what happens. `Clear` resets the values, so the next good read only fills them again. `KeepOld` keeps them and `Throw` throws with the error from the read. `Error` has the error of the latest read under every action and is `null` after a good read. It doesn't read itself.
+
+`Watcher` gives `Current` and `Old` as `object` too, for code that only has a `Watcher`. An unchanged value keeps its box, so it doesn't allocate on each tick.
+
+Derive from `Watcher<T>` and override `Read` to watch a value that doesn't come from memory:
+
+```cs
+sealed class DoubledWatcher(ITickCounter ticks, Watcher<int> source) : Watcher<int>(ticks)
+{
+    protected override Result<int> Read()
+    {
+        int value = source.Current;
+        return source.Error is { } error ? error : value * 2;
+    }
+}
+```
+
+`Ticks` is the tick counter the watcher got. It reads at most once per tick like the others and `FailAction` and `Enabled` work the same. A `Read` that throws sets `Error` to an `ExceptionError` and its exception comes back out under every `FailAction`, which only decides what happens to the values. A disabled watcher keeps its last `Error`.
 
 ### Patching
 

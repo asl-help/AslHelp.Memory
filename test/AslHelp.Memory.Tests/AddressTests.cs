@@ -6,6 +6,9 @@ namespace AslHelp.Memory.Tests;
 [TestFixture]
 public class AddressTests
 {
+    // Uses IntPtr.Size, because nuint.MaxValue doesn't exist on .NET Framework.
+    private static readonly ulong _hostMaxValue = IntPtr.Size == 8 ? ulong.MaxValue : uint.MaxValue;
+
     // Adding an offset moves the address forward by that many bytes.
     [Test]
     public void Add_APositiveOffset_MovesForward()
@@ -71,6 +74,64 @@ public class AddressTests
         var address = (Address)0x1234UL;
 
         Assert.That((ulong)address, Is.EqualTo(0x1234UL));
+    }
+
+    // An address converts to and from a nint.
+    [Test]
+    public void ExplicitConversion_ANint_RoundTrips()
+    {
+        var address = (Address)(nint)0x1234;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(address, Is.EqualTo(new Address(0x1234)));
+            Assert.That((nint)address, Is.EqualTo((nint)0x1234));
+        }
+    }
+
+    // A negative nint keeps its bits as an address of the host's pointer size, so -1 on a 32-bit host is 0xFFFFFFFF.
+    [Test]
+    public void ExplicitConversion_ANegativeNint_KeepsItsBitsWithoutSignExtension()
+    {
+        nint value = -1;
+
+        Assert.That(((Address)value).Value, Is.EqualTo(_hostMaxValue));
+    }
+
+    // An address the host pointer can store converts even when the nint is negative.
+    [Test]
+    public void ExplicitConversion_AnAddressInTheUpperHalf_BecomesANegativeNint()
+    {
+        Address address = new(_hostMaxValue);
+
+        Assert.That((nint)address, Is.EqualTo((nint)(-1)));
+    }
+
+    // The ends of the nint range keep their bits both ways, so the sign bit doesn't get lost or spread.
+    [Test]
+    public void ExplicitConversion_TheEndsOfTheNintRange_RoundTrip()
+    {
+        nint min = IntPtr.Size == 8 ? unchecked((nint)long.MinValue) : int.MinValue;
+        nint max = IntPtr.Size == 8 ? unchecked((nint)long.MaxValue) : int.MaxValue;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(((Address)min).Value, Is.EqualTo((_hostMaxValue >> 1) + 1));
+            Assert.That((nint)(Address)min, Is.EqualTo(min));
+            Assert.That(((Address)max).Value, Is.EqualTo(_hostMaxValue >> 1));
+            Assert.That((nint)(Address)max, Is.EqualTo(max));
+        }
+    }
+
+    // An address past the 32-bit range doesn't fit the pointer of a 32-bit host.
+    [Test]
+    public void ExplicitConversion_AnAddressWiderThanThePointer_Throws()
+    {
+        Assume.That(IntPtr.Size, Is.EqualTo(4));
+
+        Address address = new(0x1_0000_0000);
+
+        Assert.That(() => (nint)address, Throws.TypeOf<OverflowException>());
     }
 
     // The distance between 2 addresses is a signed number of bytes.

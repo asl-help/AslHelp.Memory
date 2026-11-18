@@ -273,13 +273,68 @@ public partial class WatcherTests
     public void Invalidate_AfterAFailedRead_ReadsAgainInTheSameTick()
     {
         ManualTicks ticks = new();
-        ReadyLater watcher = new(ticks, Memory(0));
+        ReadyLater watcher = new(ticks);
 
         Assert.That(() => watcher.Current, Throws.InvalidOperationException);
 
         watcher.MakeReady();
 
         Assert.That(watcher.Current, Is.EqualTo(1));
+    }
+
+    // A read that throws sets Error so a check sees why it failed. The next good read clears it.
+    [Test]
+    public void Error_AfterAReadThatThrew_IsTheException()
+    {
+        ReadyLater watcher = new(new ManualTicks());
+
+        Assert.That(() => watcher.Current, Throws.InvalidOperationException);
+        Assert.That(watcher.Error, Is.TypeOf<ExceptionError>().With.Property("Exception").SameAs(watcher.NotReady));
+
+        watcher.MakeReady();
+        _ = watcher.Current;
+
+        Assert.That(watcher.Error, Is.Null);
+    }
+
+    // Each memory watcher refuses a null reader.
+    [Test]
+    public void Constructor_ANullReader_Throws()
+    {
+        ManualTicks ticks = new();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                () => new MemoryWatcher<int>(ticks, null!, Address.Zero),
+                Throws.ArgumentNullException.With.Property("ParamName").EqualTo("reader"));
+            Assert.That(
+                () => new StringWatcher(ticks, null!, 1, StringType.Utf8, Address.Zero),
+                Throws.ArgumentNullException.With.Property("ParamName").EqualTo("reader"));
+            Assert.That(
+                () => new ArrayWatcher<int>(ticks, null!, 1, Address.Zero),
+                Throws.ArgumentNullException.With.Property("ParamName").EqualTo("reader"));
+        }
+    }
+
+    // Changed through the base is the same as through the typed watcher.
+    [Test]
+    public void Changed_ThroughTheBase_IsTheChangeOfTheLatestRead()
+    {
+        var memory = Memory(5);
+        ManualTicks ticks = new();
+
+        MemoryWatcher<int> typed = new(ticks, memory, Address.Zero);
+        Watcher watcher = typed;
+        Assert.That(watcher.Changed, Is.False);
+
+        ticks.Value++;
+        Write(memory, 9);
+        Assert.That(watcher.Changed, Is.True);
+
+        watcher.Enabled = false;
+        ticks.Value++;
+        Assert.That(watcher.Changed, Is.False);
     }
 
     // Check runs the comparison on the previous and the latest value.
