@@ -73,6 +73,40 @@ public class MemoryModuleEdgeTests
         Assert.That(module.GetFileHash().IsErr, Is.True);
     }
 
+    // A path to a folder returns an error with the path instead of throwing.
+    [Test]
+    public void GetFileVersion_PathOfAFolder_ReturnsAnErrorWithThePath()
+    {
+        MemoryModule module = new("file.dll", _folder, _range);
+
+        Assert.That(module.GetFileVersion().UnwrapErr().Message, Does.Contain(_folder));
+    }
+
+    // A file another handle opened without sharing returns an error instead of an empty version.
+    [Test]
+    public void GetFileVersion_FileOpenWithoutSharing_ReturnsAnError()
+    {
+        string path = Path.Combine(_folder, "file.dll");
+        File.Copy(typeof(MemoryModuleEdgeTests).Assembly.Location, path);
+        MemoryModule module = new("file.dll", path, _range);
+
+        using FileStream locker = new(path, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        Assert.That(module.GetFileVersion().UnwrapErr().Message, Does.Contain(path));
+    }
+
+    // An empty or malformed path returns an error on both frameworks instead of throwing.
+    [TestCase("")]
+    [TestCase("file|name.dll")]
+    [TestCase("file\0name.dll")]
+    [TestCase("C:\\folder\\file:name:dll")]
+    public void GetFileVersion_InvalidPath_ReturnsAnError(string path)
+    {
+        MemoryModule module = new("file.dll", path, _range);
+
+        Assert.That(module.GetFileVersion().IsErr, Is.True);
+    }
+
     // Equals compares every positional value, so modules that differ in 1 of them aren't equal.
     [TestCase("other.bin", "C:/file.bin", 0x1000UL, 0x100UL)]
     [TestCase("file.bin", "C:/other.bin", 0x1000UL, 0x100UL)]

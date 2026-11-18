@@ -148,7 +148,7 @@
     <value>No module named '{0}' is loaded.</value>
   </data>
   <data name="ModulePathUnknown" xml:space="preserve">
-    <value>The path of module '{0}' isn't known, so its file can't be hashed.</value>
+    <value>The path of module '{0}' isn't known, so its file can't be read.</value>
   </data>
   <data name="ObjectNotAddress" xml:space="preserve">
     <value>The object isn't an Address.</value>

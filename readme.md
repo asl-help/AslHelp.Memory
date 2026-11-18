@@ -37,7 +37,7 @@ var player = memory.Deref(module.Range.Start + 0x3000, 0x10, 0x8);
 
 `(nint)address` and `(Address)pointer` convert between an `Address` and a native pointer. `(nint)address` throws `OverflowException` when the address doesn't fit the host's pointer size.
 
-`GetModule` finds a module by name. `GetFileHash` returns the SHA256 of a module's file. Each `MemoryModule` reads its file once. `GetModule` returns a new one per call, so keep the module to reuse the hash.
+`GetModule` finds a module by name. `GetFileHash` returns the SHA256 of a module's file. `GetFileVersion` returns the file version text and the 4 numbers of the fixed file version from the file's version resource. The text and the numbers can differ. A file without a version resource gives no text and 0.0.0.0. Each `MemoryModule` reads its file once for the hash and once for the version. `GetModule` returns a new one per call, so keep the module to reuse the hash and the version.
 
 ### Scanning
 
