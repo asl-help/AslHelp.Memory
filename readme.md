@@ -21,7 +21,7 @@ dotnet add package AslHelp.Memory.Remote
 ```cs
 using var memory = new RemoteProcessMemory(process);
 
-if (!memory.GetModule("game.exe").TryUnwrap(out var module, out var error))
+if (!memory.GetMainModule().TryUnwrap(out var module, out var error))
 {
     return error;
 }
@@ -32,6 +32,8 @@ var player = memory.Deref(module.Range.Start + 0x3000, 0x10, 0x8);
 ```
 
 `ReadArray` reads several values at once and `ReadPointer` reads 1 pointer in the target's pointer size.
+
+`GetModule` finds a module by name. `GetFileHash` returns the SHA256 of a module's file. Each `MemoryModule` reads its file once. `GetModule` returns a new one per call, so keep the module to reuse the hash.
 
 ### Scanning
 
@@ -46,7 +48,7 @@ foreach (var address in Scan.ScanRange(memory, module.Range, step))
 }
 ```
 
-`Scan.ScanRegions` searches every readable region of the process. `ScanWindow.Forward(n)` and `ScanWindow.Backward(n)` make a window of n bytes around the previous step's match. `Create` on that window makes the step.
+`Scan.ScanRegions` searches every readable region of the process. With a range it only searches the regions inside it. `ScanWindow.Forward(n)` and `ScanWindow.Backward(n)` make a window of n bytes around the previous step's match. `Create` on that window makes the step.
 
 ### Exports
 

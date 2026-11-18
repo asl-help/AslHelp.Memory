@@ -1,3 +1,4 @@
+using AslHelp.Memory.Errors;
 using System;
 using System.Collections.Generic;
 
@@ -23,11 +24,18 @@ internal sealed class ProviderMemory(
 
     public Result<IReadOnlyList<MemoryRegion>> GetRegions(MemoryRange range)
     {
-        return Regions.FindAll(region => region.Range.Start < range.End && range.Start < region.Range.End);
+        // Compares starts with Contains, because End wraps to 0 for a region at the top of memory.
+        return Regions.FindAll(region => range.Contains(region.Range.Start) || region.Range.Contains(range.Start));
     }
 
     public Result<IReadOnlyList<MemoryModule>> GetModules()
     {
         return Modules;
+    }
+
+    public Result<MemoryModule> GetMainModule()
+    {
+        // Returns the 1st listed module, as Windows lists the executable 1st.
+        return Modules is [var main, ..] ? main : MemoryError.ModuleNotFound("main");
     }
 }

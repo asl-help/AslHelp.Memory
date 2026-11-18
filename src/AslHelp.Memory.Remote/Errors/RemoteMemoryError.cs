@@ -1,7 +1,7 @@
 namespace AslHelp.Memory.Remote.Errors;
 
 /// <summary>
-///     Represents a failed write or module listing of another process.
+///     Represents a failed write, module listing or main module lookup of another process.
 /// </summary>
 internal sealed record RemoteMemoryError : ResultError
 {
@@ -36,5 +36,16 @@ internal sealed record RemoteMemoryError : ResultError
     public static RemoteMemoryError ModulesUnavailable(string reason)
     {
         return new(SR.FormatModulesUnavailable(reason));
+    }
+
+    /// <summary>
+    ///     Creates the error for a process whose module list doesn't start with a module Windows can describe.
+    /// </summary>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static RemoteMemoryError MainModuleNotListed()
+    {
+        return new(SR.MainModuleNotListed);
     }
 }

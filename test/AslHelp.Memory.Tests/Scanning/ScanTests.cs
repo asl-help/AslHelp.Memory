@@ -127,6 +127,70 @@ public class ScanTests
         Assert.That(found, Is.Empty);
     }
 
+    // A region that starts before the range is cut at the range start, so a match before it isn't returned.
+    [Test]
+    public void ScanRegions_ARegionStartingBeforeTheRange_SkipsMatchesBeforeIt()
+    {
+        ProviderMemory memory = new(new(_base, [0xAB, 0x00, 0xAB, 0x00], MemoryLayout.X64));
+        memory.Regions.Add(new(new(_base, 4), MemoryProtection.Read));
+
+        var found = Scan.ScanRegions(memory, new(_base + 2, 2), ScanPattern.Parse("AB")).Unwrap();
+
+        Assert.That(found, Is.EqualTo([_base + 2]));
+    }
+
+    // A match whose last byte is past the range end isn't returned, even though its region has it.
+    [Test]
+    public void ScanRegions_AMatchAcrossTheRangeEnd_IsNotFound()
+    {
+        ProviderMemory memory = new(new(_base, [0x00, 0xAB, 0xCD, 0x00], MemoryLayout.X64));
+        memory.Regions.Add(new(new(_base, 4), MemoryProtection.Read));
+
+        var found = Scan.ScanRegions(memory, new(_base, 2), ScanPattern.Parse("AB CD")).Unwrap();
+
+        Assert.That(found, Is.Empty);
+    }
+
+    // Only the readable regions inside the range are searched, so an unreadable region and a region past the range are skipped.
+    [Test]
+    public void ScanRegions_InARange_SearchesOnlyReadableRegions()
+    {
+        ProviderMemory memory = new(new(_base, [0xAB, 0x00, 0xAB, 0x00, 0xAB, 0x00], MemoryLayout.X64));
+        memory.Regions.Add(new(new(_base, 2), MemoryProtection.None));
+        memory.Regions.Add(new(new(_base + 2, 2), MemoryProtection.Read));
+        memory.Regions.Add(new(new(_base + 4, 2), MemoryProtection.Read));
+
+        var found = Scan.ScanRegions(memory, new(_base, 4), ScanPattern.Parse("AB")).Unwrap();
+
+        Assert.That(found, Is.EqualTo([_base + 2]));
+    }
+
+    // A range over 2 adjacent readable regions finds a match across both once.
+    [Test]
+    public void ScanRegions_ARangeAcrossAdjacentRegions_FindsAMatchAcrossThem()
+    {
+        ProviderMemory memory = new(new(_base, [0x00, 0xAB, 0xCD, 0xAB, 0xCD], MemoryLayout.X64));
+        memory.Regions.Add(new(new(_base, 2), MemoryProtection.Read));
+        memory.Regions.Add(new(new(_base + 2, 3), MemoryProtection.Read));
+
+        var found = Scan.ScanRegions(memory, new(_base, 3), ScanPattern.Parse("AB CD")).Unwrap();
+
+        Assert.That(found, Is.EqualTo([_base + 1]));
+    }
+
+    // A range whose end wraps to 0 is still cut and searched.
+    [Test]
+    public void ScanRegions_ARangeEndingAtTheTopOfMemory_IsSearched()
+    {
+        Address top = new(ulong.MaxValue - 7);
+        ProviderMemory memory = new(new(top, [0xAB, 0x00, 0x00, 0x00, 0x00, 0x00, 0xAB, 0x00], MemoryLayout.X64));
+        memory.Regions.Add(new(new(top, 8), MemoryProtection.Read));
+
+        var found = Scan.ScanRegions(memory, new(top + 4, 4), ScanPattern.Parse("AB")).Unwrap();
+
+        Assert.That(found, Is.EqualTo([top + 6]));
+    }
+
     // The scan stops reading once the caller takes the first match.
     [Test]
     public void ScanRange_TakingTheFirstMatch_StopsEarly()

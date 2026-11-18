@@ -18,6 +18,8 @@ public static class Scan
     /// </summary>
     public const int ChunkSize = 64 * 1024;
 
+    private static readonly MemoryRange _allMemory = new(Address.Zero, ulong.MaxValue);
+
     /// <summary>
     ///     Creates the step that searches the whole range for <paramref name="signature"/>.
     /// </summary>
@@ -108,7 +110,34 @@ public static class Scan
     {
         ArgumentNullException.ThrowIfNull(reader);
 
-        return ReadableRanges(reader).Map(ranges => RangesIterator(reader, ranges, pattern));
+        return ReadableRanges(reader, _allMemory).Map(ranges => RangesIterator(reader, ranges, pattern));
+    }
+
+    /// <summary>
+    ///     Searches the readable regions of <paramref name="reader"/> inside <paramref name="range"/> for
+    ///     <paramref name="pattern"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Each region is cut to <paramref name="range"/>, so a match is only found when all of its bytes are inside the
+    ///     range. Adjacent readable regions are searched as 1 range, as in <see cref="ScanRegions{TReader}(TReader, ScanPattern)"/>.
+    /// </remarks>
+    /// <typeparam name="TReader">The type of memory that reads bytes and lists its regions.</typeparam>
+    /// <param name="reader">The memory to read from.</param>
+    /// <param name="range">The bytes to search.</param>
+    /// <param name="pattern">The pattern to search for.</param>
+    /// <returns>
+    ///     The addresses the pattern matches at on success, otherwise a failed result when the regions couldn't be
+    ///     listed.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="reader"/> is <see langword="null"/>.
+    /// </exception>
+    public static Result<IEnumerable<Address>> ScanRegions<TReader>(TReader reader, MemoryRange range, ScanPattern pattern)
+        where TReader : IMemoryReader, IMemoryRegionProvider
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+
+        return ReadableRanges(reader, range).Map(ranges => RangesIterator(reader, ClampIterator(ranges, range), pattern));
     }
 
     /// <summary>
@@ -191,7 +220,7 @@ public static class Scan
     {
         ArgumentNullException.ThrowIfNull(reader);
 
-        var ranges = ReadableRanges(reader);
+        var ranges = ReadableRanges(reader, _allMemory);
         if (ranges.IsErr)
         {
             return ranges.Error;
@@ -215,16 +244,38 @@ public static class Scan
         return ScanChain(reader, range, [step], 0, anchor);
     }
 
-    private static Result<IEnumerable<MemoryRange>> ReadableRanges<TReader>(TReader reader)
+    private static Result<IEnumerable<MemoryRange>> ReadableRanges<TReader>(TReader reader, MemoryRange range)
         where TReader : IMemoryRegionProvider
     {
-        var regions = reader.GetRegions(new(Address.Zero, ulong.MaxValue));
+        var regions = reader.GetRegions(range);
         if (regions.IsErr)
         {
             return regions.Error;
         }
 
         return Result.Ok(regions.Unwrap().MergeReadable());
+    }
+
+    // Cuts with offsets from the start of each range, because End wraps to 0 for a range at the top of memory.
+    private static IEnumerable<MemoryRange> ClampIterator(IEnumerable<MemoryRange> readable, MemoryRange range)
+    {
+        foreach (var merged in readable)
+        {
+            ulong skip = range.Start > merged.Start ? range.Start.Value - merged.Start.Value : 0;
+            if (skip >= merged.Size)
+            {
+                continue;
+            }
+
+            Address start = new(merged.Start.Value + skip);
+            ulong offset = start.Value - range.Start.Value;
+            if (offset >= range.Size)
+            {
+                continue;
+            }
+
+            yield return new(start, Math.Min(merged.Size - skip, range.Size - offset));
+        }
     }
 
     private static IEnumerable<Address> RangesIterator(IMemoryReader reader, IEnumerable<MemoryRange> ranges, ScanPattern pattern)

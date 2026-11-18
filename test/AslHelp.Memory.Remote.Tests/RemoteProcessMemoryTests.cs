@@ -154,6 +154,19 @@ public class RemoteProcessMemoryTests
         }
     }
 
+    // The main module of the test host is its exe and is 1 of the listed modules.
+    [Test]
+    public void GetMainModule_CurrentProcess_IsInTheModuleList()
+    {
+        var module = _memory.GetMainModule().Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(module.Path, Is.EqualTo(_process.MainModule!.FileName).IgnoreCase);
+            Assert.That(_memory.GetModules().Unwrap(), Has.Member(module));
+        }
+    }
+
     // Read of an unmapped low address returns an error instead of throwing.
     [Test]
     public void Read_UnmappedAddress_ReturnsAnError()
@@ -180,6 +193,7 @@ public class RemoteProcessMemoryTests
             Assert.That(() => _memory.Write(new Address(0x10), [1]), Throws.TypeOf<ObjectDisposedException>());
             Assert.That(() => _memory.GetRegions(new(new Address(0x10), 1)), Throws.TypeOf<ObjectDisposedException>());
             Assert.That(() => _memory.GetModules(), Throws.TypeOf<ObjectDisposedException>());
+            Assert.That(() => _memory.GetMainModule(), Throws.TypeOf<ObjectDisposedException>());
         }
     }
 

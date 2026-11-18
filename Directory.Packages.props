@@ -40,6 +40,8 @@
       M:System.ArgumentOutOfRangeException.ThrowIfGreaterThan``1(;
       M:System.ArgumentOutOfRangeException.ThrowIfNegative``1(;
       M:System.Collections.Generic.Dictionary`2.TryAdd(`0,`1);
+      M:System.Convert.ToHexStringLower(System.Byte[]);
+      M:System.Convert.ToHexStringLower(System.Byte[],System.Int32,System.Int32);
       M:System.ObjectDisposedException.ThrowIf(System.Boolean,System.Object);
       M:System.String.Contains(System.String,System.StringComparison);
       M:System.Text.Encoding.GetString(System.ReadOnlySpan{System.Byte});
