@@ -1,10 +1,13 @@
 namespace AslHelp.Memory.Remote.Errors;
 
 /// <summary>
-///     Represents a failed write, module listing or main module lookup of another process.
+///     Represents a failed call on another process, like a write, a module listing or any call after the handle closed.
 /// </summary>
 internal sealed record RemoteMemoryError : ResultError
 {
+    // Keep 1 instance, because a watcher can read a disposed instance every tick.
+    private static readonly RemoteMemoryError _processClosed = new(SR.ProcessClosed);
+
     private RemoteMemoryError(string message)
     {
         Message = message;
@@ -24,6 +27,17 @@ internal sealed record RemoteMemoryError : ResultError
     public static RemoteMemoryError Unwritable(Address address, int size)
     {
         return new(SR.FormatUnwritable(size, address));
+    }
+
+    /// <summary>
+    ///     Gets the error for a call after <see cref="RemoteProcessMemory.Dispose"/>.
+    /// </summary>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static RemoteMemoryError ProcessClosed()
+    {
+        return _processClosed;
     }
 
     /// <summary>

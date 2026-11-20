@@ -86,12 +86,12 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     internal uint ProcessId { get; }
 
     /// <inheritdoc/>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
     public unsafe Result Read(Address address, Span<byte> buffer)
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         if (!TryGetHostPointer(address, out void* pointer))
         {
@@ -103,20 +103,28 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return Result.Ok();
         }
 
-        bool success = PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read);
+        try
+        {
+            bool success = PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read);
 
-        return success && read == (nuint)buffer.Length
-            ? Result.Ok()
-            : new RemoteUnreadableError(address, buffer.Length);
+            return success && read == (nuint)buffer.Length
+                ? Result.Ok()
+                : new RemoteUnreadableError(address, buffer.Length);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
+        }
     }
 
     /// <inheritdoc/>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
     public unsafe Result Write(Address address, ReadOnlySpan<byte> buffer)
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         if (!TryGetHostPointer(address, out void* pointer))
         {
@@ -133,24 +141,45 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return RemoteMemoryError.WriteHandleRefused(new Win32Exception(openError).Message);
         }
 
-        bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out nuint written);
+        try
+        {
+            bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out nuint written);
 
-        return success && written == (nuint)buffer.Length
-            ? Result.Ok()
-            : RemoteMemoryError.Unwritable(address, buffer.Length);
+            return success && written == (nuint)buffer.Length
+                ? Result.Ok()
+                : RemoteMemoryError.Unwritable(address, buffer.Length);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
+        }
     }
 
     /// <inheritdoc/>
     /// <remarks>
     ///     A region with <c>PAGE_GUARD</c> or <c>PAGE_NOACCESS</c> reports <see cref="MemoryProtection.None"/>.
     /// </remarks>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
-    public unsafe Result<IReadOnlyList<MemoryRegion>> GetRegions(MemoryRange range)
+    public Result<IReadOnlyList<MemoryRegion>> GetRegions(MemoryRange range)
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
+        try
+        {
+            return ListRegions(range);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
+        }
+    }
+
+    private unsafe List<MemoryRegion> ListRegions(MemoryRange range)
+    {
         List<MemoryRegion> regions = [];
         var address = range.Start;
 
@@ -187,12 +216,12 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     ///     A 64-bit host gets the System32 path for a system module of a 32-bit process, though the process loaded the
     ///     SysWOW64 file.
     /// </remarks>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
     public Result<IReadOnlyList<MemoryModule>> GetModules()
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         // Keeps the handle open for the raw calls, which take a HANDLE where Dispose can't reach it.
         bool added = false;
@@ -202,6 +231,11 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             _handle.DangerousAddRef(ref added);
 
             return GetModules((HANDLE)_handle.DangerousGetHandle());
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
         }
         finally
         {
@@ -258,12 +292,12 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     ///     Windows lists the executable of a process 1st, so this is the 1st module it lists, as in
     ///     <see cref="Process.MainModule"/>.
     /// </remarks>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
     public Result<MemoryModule> GetMainModule()
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         // Keeps the handle open for the raw calls, which take a HANDLE where Dispose can't reach it.
         bool added = false;
@@ -273,6 +307,11 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             _handle.DangerousAddRef(ref added);
 
             return GetMainModule((HANDLE)_handle.DangerousGetHandle());
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
         }
         finally
         {

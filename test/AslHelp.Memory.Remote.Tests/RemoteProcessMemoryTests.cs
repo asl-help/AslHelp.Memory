@@ -181,19 +181,19 @@ public class RemoteProcessMemoryTests
         Assert.That(_memory.Write(new Address(0x10), [1]).IsErr, Is.True);
     }
 
-    // Every call after Dispose throws.
+    // Every call after Dispose returns the closed error, because a watcher can still read while the game exits.
     [Test]
-    public void Calls_AfterDispose_Throw()
+    public void Calls_AfterDispose_ReturnTheClosedError()
     {
         _memory.Dispose();
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(() => _memory.Read(new Address(0x10), new byte[1]), Throws.TypeOf<ObjectDisposedException>());
-            Assert.That(() => _memory.Write(new Address(0x10), [1]), Throws.TypeOf<ObjectDisposedException>());
-            Assert.That(() => _memory.GetRegions(new(new Address(0x10), 1)), Throws.TypeOf<ObjectDisposedException>());
-            Assert.That(() => _memory.GetModules(), Throws.TypeOf<ObjectDisposedException>());
-            Assert.That(() => _memory.GetMainModule(), Throws.TypeOf<ObjectDisposedException>());
+            Assert.That(_memory.Read(new Address(0x10), new byte[1]).UnwrapErr().Message, Does.Contain("closed"));
+            Assert.That(_memory.Write(new Address(0x10), [1]).UnwrapErr().Message, Does.Contain("closed"));
+            Assert.That(_memory.GetRegions(new(new Address(0x10), 1)).UnwrapErr().Message, Does.Contain("closed"));
+            Assert.That(_memory.GetModules().UnwrapErr().Message, Does.Contain("closed"));
+            Assert.That(_memory.GetMainModule().UnwrapErr().Message, Does.Contain("closed"));
         }
     }
 

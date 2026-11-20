@@ -57,6 +57,9 @@
   <data name="PatchUnaddressable" xml:space="preserve">
     <value>{0} is above what a 32-bit process can address.</value>
   </data>
+  <data name="ProcessClosed" xml:space="preserve">
+    <value>The handle to the process is closed.</value>
+  </data>
   <data name="ProcessNotOpened" xml:space="preserve">
     <value>Couldn't open process {0} for memory access.</value>
   </data>
