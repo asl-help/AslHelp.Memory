@@ -141,8 +141,14 @@
   <data name="MethodNotRestored" xml:space="preserve">
     <value>The method at {0} could not be put back. {1}</value>
   </data>
+  <data name="ModuleFileUnreadable" xml:space="preserve">
+    <value>Couldn't read the module file '{0}'. {1}</value>
+  </data>
   <data name="ModuleNotFound" xml:space="preserve">
     <value>No module named '{0}' is loaded.</value>
+  </data>
+  <data name="ModulePathUnknown" xml:space="preserve">
+    <value>The path of module '{0}' isn't known, so its file can't be hashed.</value>
   </data>
   <data name="ObjectNotAddress" xml:space="preserve">
     <value>The object isn't an Address.</value>

@@ -14,4 +14,12 @@ public interface IMemoryModuleProvider
     ///     The modules on success, otherwise a failed result.
     /// </returns>
     Result<IReadOnlyList<MemoryModule>> GetModules();
+
+    /// <summary>
+    ///     Gets the module of the target's executable.
+    /// </summary>
+    /// <returns>
+    ///     The module on success, otherwise a failed result.
+    /// </returns>
+    Result<MemoryModule> GetMainModule();
 }

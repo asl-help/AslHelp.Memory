@@ -144,9 +144,9 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         List<MemoryRegion> regions = [];
         var address = range.Start;
-        var end = range.End;
 
-        while (address < end && TryGetHostPointer(address, out void* pointer))
+        // Checks with Contains, because End wraps to 0 for a range at the top of memory.
+        while (range.Contains(address) && TryGetHostPointer(address, out void* pointer))
         {
             if (NativeMethods.VirtualQueryEx(_handle, pointer, out var info, (nuint)sizeof(MemoryBasicInformation)) == 0)
             {
@@ -174,6 +174,10 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    ///     A 64-bit host gets the System32 path for a system module of a 32-bit process, though the process loaded the
+    ///     SysWOW64 file.
+    /// </remarks>
     /// <exception cref="ObjectDisposedException">
     ///     The instance is disposed.
     /// </exception>
@@ -231,25 +235,62 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         for (int i = 0; i < count; i++)
         {
-            MODULEINFO info;
-            if (!PInvoke.GetModuleInformation(process, handles[i], &info, (uint)sizeof(MODULEINFO)))
+            if (Describe(process, handles[i], text) is { } module)
             {
-                continue;
+                modules.Add(module);
             }
-
-            string? name = GetBaseName(process, handles[i], text);
-            if (name is null)
-            {
-                continue;
-            }
-
-            string? path = GetFileName(process, handles[i], text);
-            MemoryRange range = new(new((ulong)info.lpBaseOfDll), info.SizeOfImage);
-
-            modules.Add(new(name, path, range));
         }
 
         return modules;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Windows lists the executable of a process 1st, so this is the 1st module it lists, as in
+    ///     <see cref="Process.MainModule"/>.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">
+    ///     The instance is disposed.
+    /// </exception>
+    public Result<MemoryModule> GetMainModule()
+    {
+        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+
+        // Keeps the handle open for the raw calls, which take a HANDLE where Dispose can't reach it.
+        bool added = false;
+
+        try
+        {
+            _handle.DangerousAddRef(ref added);
+
+            return GetMainModule((HANDLE)_handle.DangerousGetHandle());
+        }
+        finally
+        {
+            if (added)
+            {
+                _handle.DangerousRelease();
+            }
+        }
+    }
+
+    private static unsafe Result<MemoryModule> GetMainModule(HANDLE process)
+    {
+        // Requests only 1 handle, so a later module is never taken when the 1st one can't be described.
+        HMODULE first = default;
+        uint needed;
+
+        if (!PInvoke.EnumProcessModulesEx(process, &first, (uint)sizeof(HMODULE), &needed, ENUM_PROCESS_MODULES_EX_FLAGS.LIST_MODULES_ALL))
+        {
+            return RemoteMemoryError.ModulesUnavailable(new Win32Exception(Marshal.GetLastWin32Error()).Message);
+        }
+
+        if (needed == 0 || Describe(process, first, new char[MaxPathLength]) is not { } module)
+        {
+            return RemoteMemoryError.MainModuleNotListed();
+        }
+
+        return module;
     }
 
     /// <summary>
@@ -258,6 +299,26 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     public void Dispose()
     {
         _handle.Dispose();
+    }
+
+    private static unsafe MemoryModule? Describe(HANDLE process, HMODULE module, char[] text)
+    {
+        MODULEINFO info;
+        if (!PInvoke.GetModuleInformation(process, module, &info, (uint)sizeof(MODULEINFO)))
+        {
+            return null;
+        }
+
+        string? name = GetBaseName(process, module, text);
+        if (name is null)
+        {
+            return null;
+        }
+
+        string? path = GetFileName(process, module, text);
+        MemoryRange range = new(new((ulong)info.lpBaseOfDll), info.SizeOfImage);
+
+        return new(name, path, range);
     }
 
     private static unsafe string? GetBaseName(HANDLE process, HMODULE module, char[] text)
