@@ -27,6 +27,18 @@ internal sealed record RemoteMemoryError : ResultError
     }
 
     /// <summary>
+    ///     Creates the error for a process that refused a handle with the rights to write.
+    /// </summary>
+    /// <param name="reason">The system message for the failure.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static RemoteMemoryError WriteHandleRefused(string reason)
+    {
+        return new(SR.FormatWriteHandleRefused(reason));
+    }
+
+    /// <summary>
     ///     Creates the error for a module list that couldn't be read from the process.
     /// </summary>
     /// <param name="reason">The system message for the failure.</param>

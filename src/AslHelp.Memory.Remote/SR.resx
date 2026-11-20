@@ -69,4 +69,7 @@
   <data name="Wow64NotFound" xml:space="preserve">
     <value>Couldn't find whether process {0} runs under WOW64.</value>
   </data>
+  <data name="WriteHandleRefused" xml:space="preserve">
+    <value>The process refused a handle for writes. {0}</value>
+  </data>
 </root>

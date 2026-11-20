@@ -38,6 +38,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - **Breaking:** `SearchStep.Search` is now `Scan`.
 - The errors for a missing string terminator, scan pattern, pool slot and export table now read `doesn't have a` instead of `has no`.
 
+### Fixed
+- `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write, so a process that refuses writes can still be read.
+
 ## [0.1.0-alpha.1] - 2026-10-25
 
 ### Added

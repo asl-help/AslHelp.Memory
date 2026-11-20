@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Memory;
@@ -21,27 +22,30 @@ namespace AslHelp.Memory.Remote;
 [SupportedOSPlatform("windows")]
 public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryRegionProvider, IMemoryModuleProvider, IDisposable
 {
-    private const PROCESS_ACCESS_RIGHTS Access =
-        PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_INFORMATION
-        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_READ
-        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_WRITE
-        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_OPERATION;
+    private const PROCESS_ACCESS_RIGHTS ReadAccess = PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_INFORMATION | PROCESS_ACCESS_RIGHTS.PROCESS_VM_READ;
+    private const PROCESS_ACCESS_RIGHTS WriteAccess = PROCESS_ACCESS_RIGHTS.PROCESS_VM_OPERATION | PROCESS_ACCESS_RIGHTS.PROCESS_VM_WRITE;
 
     // The longest path the wide Windows APIs accept, in characters.
     private const int MaxPathLength = 32767;
 
     private readonly SafeFileHandle _handle;
 
+    // Opens on the 1st write, because a process that refuses the rights to write can still be read.
+    private SafeFileHandle? _writeHandle;
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="RemoteProcessMemory"/> class, opening
-    ///     <paramref name="process"/> for reads and writes.
+    ///     <paramref name="process"/> for reads.
     /// </summary>
     /// <param name="process">The process to open.</param>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="process"/> is <see langword="null"/>.
     /// </exception>
+    /// <remarks>
+    ///     The 1st write opens a 2nd handle with the rights to write, so a process that refuses them can still be read.
+    /// </remarks>
     /// <exception cref="Win32Exception">
-    ///     The process couldn't be opened or its bitness couldn't be found.
+    ///     The process couldn't be opened for reads or its bitness couldn't be found.
     /// </exception>
     public RemoteProcessMemory(Process process)
     {
@@ -50,7 +54,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         int id = process.Id;
         ProcessId = (uint)id;
 
-        _handle = PInvoke.OpenProcess_SafeHandle(Access, false, (uint)id);
+        _handle = PInvoke.OpenProcess_SafeHandle(ReadAccess, false, (uint)id);
         if (_handle.IsInvalid)
         {
             throw new Win32Exception(Marshal.GetLastWin32Error(), SR.FormatProcessNotOpened(id));
@@ -124,7 +128,12 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return Result.Ok();
         }
 
-        bool success = PInvoke.WriteProcessMemory(_handle, pointer, buffer, out nuint written);
+        if (!TryOpenForWrites(out var writeHandle, out int openError))
+        {
+            return RemoteMemoryError.WriteHandleRefused(new Win32Exception(openError).Message);
+        }
+
+        bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out nuint written);
 
         return success && written == (nuint)buffer.Length
             ? Result.Ok()
@@ -294,11 +303,43 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     }
 
     /// <summary>
-    ///     Closes the handle to the process.
+    ///     Closes the handles to the process.
     /// </summary>
     public void Dispose()
     {
         _handle.Dispose();
+        Interlocked.Exchange(ref _writeHandle, null)?.Dispose();
+    }
+
+    private bool TryOpenForWrites(out SafeFileHandle writeHandle, out int win32Error)
+    {
+        win32Error = 0;
+
+        if (Volatile.Read(ref _writeHandle) is { } open)
+        {
+            writeHandle = open;
+            return true;
+        }
+
+        var opened = PInvoke.OpenProcess_SafeHandle(WriteAccess, false, ProcessId);
+        if (opened.IsInvalid)
+        {
+            win32Error = Marshal.GetLastWin32Error();
+            opened.Dispose();
+
+            writeHandle = null!;
+            return false;
+        }
+
+        // Keep the handle of the 1st thread, because 2 threads can write at once and only 1 handle gets disposed.
+        if (Interlocked.CompareExchange(ref _writeHandle, opened, null) is { } other)
+        {
+            opened.Dispose();
+            opened = other;
+        }
+
+        writeHandle = opened;
+        return true;
     }
 
     private static unsafe MemoryModule? Describe(HANDLE process, HMODULE module, char[] text)
