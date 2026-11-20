@@ -149,9 +149,12 @@ public abstract class Watcher<T>(
             Current = value;
             Changed = _filled && !_comparer.Equals(Old, Current);
             _filled = true;
+            Error = null;
 
             return;
         }
+
+        Error = error;
 
         if (FailAction == FailAction.Throw)
         {

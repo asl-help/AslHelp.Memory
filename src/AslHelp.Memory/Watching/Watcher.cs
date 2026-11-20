@@ -57,6 +57,14 @@ public abstract class Watcher
     } = true;
 
     /// <summary>
+    ///     Gets the error of the latest read, or <see langword="null"/> when the read succeeded.
+    /// </summary>
+    /// <remarks>
+    ///     Doesn't read, so a check can look at a watcher without moving its values.
+    /// </remarks>
+    public ResultError? Error { get; private protected set; }
+
+    /// <summary>
     ///     Gets or sets what happens to the values when a read fails. The default is <see cref="FailAction.Clear"/>.
     /// </summary>
     public FailAction FailAction { get; set; }
