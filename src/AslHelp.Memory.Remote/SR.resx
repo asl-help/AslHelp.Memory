@@ -63,6 +63,9 @@
   <data name="ProcessNotOpened" xml:space="preserve">
     <value>Couldn't open process {0} for memory access.</value>
   </data>
+  <data name="RegionsUnavailable" xml:space="preserve">
+    <value>Couldn't list the regions at {0}. {1}</value>
+  </data>
   <data name="Unreadable" xml:space="preserve">
     <value>Couldn't read {0} bytes at {1}.</value>
   </data>

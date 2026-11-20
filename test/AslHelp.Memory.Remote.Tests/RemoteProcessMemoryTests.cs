@@ -102,6 +102,15 @@ public class RemoteProcessMemoryTests
         }
     }
 
+    // GetRegions ends the list at the top of user memory, because Windows refuses a query above it as an invalid parameter.
+    [Test]
+    public void GetRegions_WholeAddressSpace_ListsUpToTheTop()
+    {
+        var regions = _memory.GetRegions(new(new Address(0), ulong.MaxValue)).Unwrap();
+
+        Assert.That(regions, Has.Some.Matches<MemoryRegion>(region => region.Range.Contains(_memory.GetMainModule().Unwrap().Range.Start)));
+    }
+
     // GetRegions reports the managed heap under a pinned array as readable and writable.
     [Test]
     public void GetRegions_PinnedBytes_ReportsReadWrite()

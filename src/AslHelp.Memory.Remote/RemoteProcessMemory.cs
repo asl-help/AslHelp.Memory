@@ -178,8 +178,11 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         }
     }
 
-    private unsafe List<MemoryRegion> ListRegions(MemoryRange range)
+    private unsafe Result<IReadOnlyList<MemoryRegion>> ListRegions(MemoryRange range)
     {
+        // Matches ERROR_INVALID_PARAMETER, which Windows returns for an address above the top of user memory.
+        const int InvalidParameter = 87;
+
         List<MemoryRegion> regions = [];
         var address = range.Start;
 
@@ -188,7 +191,16 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         {
             if (NativeMethods.VirtualQueryEx(_handle, pointer, out var info, (nuint)sizeof(MemoryBasicInformation)) == 0)
             {
-                break;
+                int error = Marshal.GetLastWin32Error();
+
+                // End the list at the top of user memory and fail on any other refusal, because a short list reads as a
+                // scan that found nothing.
+                if (error == InvalidParameter)
+                {
+                    break;
+                }
+
+                return RemoteMemoryError.RegionsUnavailable(address, new Win32Exception(error).Message);
             }
 
             Address start = new(info.BaseAddress);

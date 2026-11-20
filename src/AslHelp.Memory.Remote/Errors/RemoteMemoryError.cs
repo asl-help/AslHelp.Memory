@@ -53,6 +53,19 @@ internal sealed record RemoteMemoryError : ResultError
     }
 
     /// <summary>
+    ///     Creates the error for a region query Windows refused.
+    /// </summary>
+    /// <param name="address">The address of the refused query.</param>
+    /// <param name="reason">The system message for the failure.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static RemoteMemoryError RegionsUnavailable(Address address, string reason)
+    {
+        return new(SR.FormatRegionsUnavailable(address, reason));
+    }
+
+    /// <summary>
     ///     Creates the error for a module list that couldn't be read from the process.
     /// </summary>
     /// <param name="reason">The system message for the failure.</param>

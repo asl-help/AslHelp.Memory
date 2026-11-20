@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 ### Fixed
 - `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write, so a process that refuses writes can still be read.
 - `RemoteProcessMemory` returns an error after `Dispose` instead of throwing `ObjectDisposedException`, so a read never throws when the game exits during a tick.
+- `RemoteProcessMemory.GetRegions` fails when Windows refuses a region query instead of returning the regions up to that address, so a scan doesn't report a miss for memory it never saw.
 
 ## [0.1.0-alpha.1] - 2026-10-25
 
