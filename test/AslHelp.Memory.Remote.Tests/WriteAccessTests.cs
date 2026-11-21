@@ -5,6 +5,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using Windows.Win32;
+using Windows.Win32.System.Threading;
 
 namespace AslHelp.Memory.Remote.Tests;
 
@@ -22,6 +24,16 @@ public class WriteAccessTests
     {
         using var child = FixtureChild.Start();
         ProcessSecurity.DenyToEveryone(child.Process.SafeHandle, WriteRights);
+
+        // End as inconclusive when the host still gets the denied rights, because an enabled SeDebugPrivilege skips the
+        // access check.
+        using (var probe = PInvoke.OpenProcess_SafeHandle((PROCESS_ACCESS_RIGHTS)WriteRights, false, (uint)child.Process.Id))
+        {
+            if (!probe.IsInvalid)
+            {
+                Assert.Inconclusive("The test host opens the process with the denied rights anyway.");
+            }
+        }
 
         using RemoteProcessMemory memory = new(child.Process);
         byte[] bytes = new byte[8];
