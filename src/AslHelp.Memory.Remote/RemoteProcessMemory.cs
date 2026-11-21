@@ -10,6 +10,7 @@ using System.Runtime.Versioning;
 using System.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Diagnostics.ToolHelp;
 using Windows.Win32.System.Memory;
 using Windows.Win32.System.ProcessStatus;
 using Windows.Win32.System.Threading;
@@ -225,14 +226,20 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     A 64-bit host gets the System32 path for a system module of a 32-bit process, though the process loaded the
-    ///     SysWOW64 file.
+    ///     The modules come from a Toolhelp snapshot, which gives a 32-bit process the SysWOW64 paths of its system
+    ///     modules. When Windows refuses the snapshot, the modules come from the process handle, which gives those modules
+    ///     their System32 paths.
     /// </remarks>
     public Result<IReadOnlyList<MemoryModule>> GetModules()
     {
         if (_handle.IsClosed)
         {
             return RemoteMemoryError.ProcessClosed();
+        }
+
+        if (GetSnapshotModules() is { } snapshotModules)
+        {
+            return snapshotModules;
         }
 
         // Keeps the handle open for the raw calls, which take a HANDLE where Dispose can't reach it.
@@ -256,6 +263,31 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
                 _handle.DangerousRelease();
             }
         }
+    }
+
+    private unsafe List<MemoryModule>? GetSnapshotModules()
+    {
+        using var snapshot = PInvoke.CreateToolhelp32Snapshot_SafeHandle(
+            CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE | CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE32,
+            ProcessId);
+
+        MODULEENTRY32W entry = new() { dwSize = (uint)sizeof(MODULEENTRY32W) };
+
+        // Leave a refused snapshot to the process handle, because Windows refuses it while a process starts.
+        if (snapshot.IsInvalid || !PInvoke.Module32FirstW(snapshot, ref entry))
+        {
+            return null;
+        }
+
+        List<MemoryModule> modules = [];
+
+        do
+        {
+            MemoryRange range = new(new((ulong)entry.modBaseAddr), entry.modBaseSize);
+            modules.Add(new(entry.szModule.ToString(), entry.szExePath.ToString(), range));
+        } while (PInvoke.Module32NextW(snapshot, ref entry));
+
+        return modules;
     }
 
     private static unsafe Result<IReadOnlyList<MemoryModule>> GetModules(HANDLE process)
@@ -401,13 +433,15 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return null;
         }
 
-        string? name = GetBaseName(process, module, text);
-        if (name is null)
+        string? path = GetFileName(process, module, text);
+
+        // Take the name from the path, because Windows can refuse the base name of a module that is still loading.
+        string? name = GetBaseName(process, module, text) ?? System.IO.Path.GetFileName(path);
+        if (string.IsNullOrEmpty(name))
         {
             return null;
         }
 
-        string? path = GetFileName(process, module, text);
         MemoryRange range = new(new((ulong)info.lpBaseOfDll), info.SizeOfImage);
 
         return new(name, path, range);
