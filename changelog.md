@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `MemoryModule.GetFileHash` for the SHA256 of the module file. Each `MemoryModule` reads the file once.
 - `MemoryModule.GetFileVersion` and `ModuleFileVersion` for the file version text and the fixed file version in the version resource of the module file. Each `MemoryModule` reads the file once.
 - `Scan.ScanRegions` with a `MemoryRange` for scanning only the readable regions inside it.
+- `Scan.ScanBuffer` for the offsets of a pattern in bytes that are already read.
 - `Watcher.Error` for the error of the latest read, so a failed read under `FailAction.Clear` or `KeepOld` still shows why it failed. A `Read` that throws sets it to an `ExceptionError`, applies `FailAction` to the values and throws its exception again.
 - `Watcher.Current` and `Old` for the values as `object`. An unchanged value keeps its box. `Changed` moved up from `Watcher<T>`.
 - `Watcher.Ticks` for the tick counter of a derived watcher.
@@ -47,6 +48,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - The errors for a missing scan pattern, pool slot and export table now read `doesn't have a` instead of `has no`.
 
 ### Fixed
+- A `ScanWindow` step that crosses an unreadable page or the end of readable memory searches the readable pages instead of finding nothing.
+- `ScanWindow.Forward` and `Backward` with a negative size give an empty window that finds nothing instead of throwing.
 - `ReadString` up to a terminator cuts a string without a terminator within `maxLength` after `maxLength` units instead of failing.
 - `Read` and `ReadArray` read `nint` and `nuint` as pointers of the layout's pointer size instead of failing, which makes `MemoryWatcher<nint>` work.
 - `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write. A process that refuses writes can still be read.
