@@ -109,11 +109,14 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         try
         {
-            bool success = PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read);
+            if (!PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read))
+            {
+                return new RemoteUnreadableError(address, buffer.Length, Marshal.GetLastWin32Error(), read);
+            }
 
-            return success && read == (nuint)buffer.Length
+            return read == (nuint)buffer.Length
                 ? Result.Ok()
-                : new RemoteUnreadableError(address, buffer.Length);
+                : new RemoteUnreadableError(address, buffer.Length, 0, read);
         }
         catch (ObjectDisposedException)
         {

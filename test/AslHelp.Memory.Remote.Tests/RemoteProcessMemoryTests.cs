@@ -1,3 +1,4 @@
+using AslHelp.Memory.Remote.Errors;
 using NUnit.Framework;
 using System;
 using System.Diagnostics;
@@ -181,6 +182,15 @@ public class RemoteProcessMemoryTests
     public void Read_UnmappedAddress_ReturnsAnError()
     {
         Assert.That(_memory.Read<int>(new Address(0x10)).IsErr, Is.True);
+    }
+
+    // The error of a read Windows cut short gives the number of bytes it read.
+    [Test]
+    public void Message_IncompleteRead_GivesTheBytesRead()
+    {
+        RemoteUnreadableError error = new(new Address(0x1000), 8, 0, 3);
+
+        Assert.That(error.Message, Is.EqualTo("Read only 3 of 8 bytes at 0x1000."));
     }
 
     // Write to an unmapped low address returns an error instead of throwing.
