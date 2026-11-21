@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - An optional `Logger` for `RemoteProcessMemory`, which logs failed reads and writes at trace level, refused handles and module snapshots at debug level and a page that stays writable after a write as a warning.
 - `RemotePatchWriter` in `AslHelp.Memory.Remote`, the `IPatchWriter` for a running Windows process. It reserves memory within a relative jump of an anchor, writes code with each page's own protection put back and suspends the target's threads while a patch is written.
 - `StringType.Auto` for `ReadString` and `StringWatcher`. With a length, it reads a string as UTF-16 when the first 2 chars look like Latin text in UTF-16 and as UTF-8 otherwise. Up to a terminator, it reads UTF-8.
+- `ScanPattern.Values` and `Masks` for reading the bytes and wildcard nibbles of a pattern without parsing its text.
 
 ### Changed
 - **Breaking:** `IMemoryModuleProvider` has the new member `GetMainModule`, so an implementation needs it too.

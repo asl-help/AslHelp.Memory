@@ -16,18 +16,33 @@ public readonly struct ScanPattern : IEquatable<ScanPattern>
     private readonly byte[]? _values;
     private readonly byte[]? _masks;
     private readonly int _anchor;
+    private readonly bool _hasWildcards;
 
-    private ScanPattern(byte[] values, byte[]? masks, int anchor)
+    private ScanPattern(byte[] values, byte[] masks, int anchor, bool hasWildcards)
     {
         _values = values;
         _masks = masks;
         _anchor = anchor;
+        _hasWildcards = hasWildcards;
     }
 
     /// <summary>
     ///     Gets the number of bytes the pattern spans.
     /// </summary>
     public int Length => _values?.Length ?? 0;
+
+    /// <summary>
+    ///     Gets the value of each byte, with 0 in each wildcard nibble.
+    /// </summary>
+    public ReadOnlySpan<byte> Values => _values;
+
+    /// <summary>
+    ///     Gets the mask of each byte, with 0xF in each fixed nibble and 0 in each wildcard nibble.
+    /// </summary>
+    /// <remarks>
+    ///     A byte <c>b</c> matches position <c>i</c> when <c>(b &amp; Masks[i]) == Values[i]</c>.
+    /// </remarks>
+    public ReadOnlySpan<byte> Masks => _masks;
 
     /// <summary>
     ///     Determines whether 2 patterns match the same bytes.
@@ -140,7 +155,7 @@ public readonly struct ScanPattern : IEquatable<ScanPattern>
             nibble++;
         }
 
-        pattern = new(values, hasWildcards ? masks : null, FindAnchor(values, masks));
+        pattern = new(values, masks, FindAnchor(values, masks), hasWildcards);
         return true;
     }
 
@@ -152,22 +167,22 @@ public readonly struct ScanPattern : IEquatable<ScanPattern>
     /// </returns>
     public override string ToString()
     {
-        if (_values is null)
+        if (_values is not { } values || _masks is not { } masks)
         {
             return string.Empty;
         }
 
-        StringBuilder builder = new(_values.Length * 3);
-        for (int i = 0; i < _values.Length; i++)
+        StringBuilder builder = new(values.Length * 3);
+        for (int i = 0; i < values.Length; i++)
         {
             if (i > 0)
             {
                 _ = builder.Append(' ');
             }
 
-            byte mask = _masks?[i] ?? 0xFF;
-            _ = builder.Append((mask & 0xF0) == 0 ? '?' : HexDigits[_values[i] >> 4]);
-            _ = builder.Append((mask & 0x0F) == 0 ? '?' : HexDigits[_values[i] & 0xF]);
+            byte mask = masks[i];
+            _ = builder.Append((mask & 0xF0) == 0 ? '?' : HexDigits[values[i] >> 4]);
+            _ = builder.Append((mask & 0x0F) == 0 ? '?' : HexDigits[values[i] & 0xF]);
         }
 
         return builder.ToString();
@@ -212,7 +227,7 @@ public readonly struct ScanPattern : IEquatable<ScanPattern>
             return -1;
         }
 
-        if (_masks is null)
+        if (!_hasWildcards)
         {
             return data.IndexOf(_values);
         }

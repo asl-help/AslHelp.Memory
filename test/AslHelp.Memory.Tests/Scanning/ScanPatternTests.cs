@@ -90,4 +90,41 @@ public class ScanPatternTests
     {
         Assert.That(default(ScanPattern).ToString(), Is.Empty);
     }
+
+    // Each wildcard nibble reads as 0 in the values and in the masks, each fixed nibble as its digit and 0xF.
+    [Test]
+    public void ValuesAndMasks_WildcardNibbles_ReadAsZero()
+    {
+        var pattern = ScanPattern.Parse("48 4? ?F ??");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(pattern.Values.ToArray(), Is.EqualTo(new byte[] { 0x48, 0x40, 0x0F, 0x00 }));
+            Assert.That(pattern.Masks.ToArray(), Is.EqualTo(new byte[] { 0xFF, 0xF0, 0x0F, 0x00 }));
+        }
+    }
+
+    // A pattern without wildcards has a full mask on every byte.
+    [Test]
+    public void Masks_NoWildcards_AreFull()
+    {
+        var pattern = ScanPattern.Parse("48 8B 05");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(pattern.Values.ToArray(), Is.EqualTo(new byte[] { 0x48, 0x8B, 0x05 }));
+            Assert.That(pattern.Masks.ToArray(), Is.EqualTo(new byte[] { 0xFF, 0xFF, 0xFF }));
+        }
+    }
+
+    // The default pattern has no values and no masks.
+    [Test]
+    public void ValuesAndMasks_Default_AreEmpty()
+    {
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(default(ScanPattern).Values.IsEmpty, Is.True);
+            Assert.That(default(ScanPattern).Masks.IsEmpty, Is.True);
+        }
+    }
 }
