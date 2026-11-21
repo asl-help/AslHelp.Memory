@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ## [Unreleased]
 
+## [0.1.0-alpha.2] - 2026-11-21
+
 ### Added
 - `GetMainModule` on `IMemoryModuleProvider` and `RemoteProcessMemory` for the module of the target's executable.
 - `MemoryModule.GetFileHash` for the SHA256 of the module file. Each `MemoryModule` reads the file once.
@@ -88,5 +90,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `FailAction` for what a watcher does when a read fails: clear its values, keep them or throw with the error of the read.
 - `RemoteProcessMemory` in the new `AslHelp.Memory.Remote` package for reading, writing, regions and modules of another Windows process.
 
-[Unreleased]: https://github.com/asl-help/AslHelp.Memory/compare/0.1.0-alpha.1...HEAD
+[Unreleased]: https://github.com/asl-help/AslHelp.Memory/compare/0.1.0-alpha.2...HEAD
+[0.1.0-alpha.2]: https://github.com/asl-help/AslHelp.Memory/compare/0.1.0-alpha.1...0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/asl-help/AslHelp.Memory/releases/tag/0.1.0-alpha.1
