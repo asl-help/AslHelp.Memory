@@ -1,6 +1,7 @@
 using AslHelp.Memory.Errors;
 using AslHelp.Memory.Watching;
 using System;
+using System.Collections.Generic;
 
 namespace AslHelp.Memory.Tests.Watching;
 
@@ -35,10 +36,11 @@ public partial class WatcherTests
 
     // Throws until MakeReady runs, and then reads 1.
     private sealed class ReadyLater(
-        ITickCounter ticks,
-        IMemoryReader reader) : Watcher<int>(ticks, reader)
+        ITickCounter ticks) : Watcher<int>(ticks)
     {
         private bool _isReady;
+
+        public InvalidOperationException NotReady { get; } = new("The value isn't ready.");
 
         public void MakeReady()
         {
@@ -46,9 +48,36 @@ public partial class WatcherTests
             Invalidate();
         }
 
-        protected override Result<int> Read(IMemoryReader reader)
+        protected override Result<int> Read()
         {
-            return _isReady ? 1 : throw new InvalidOperationException("The value isn't ready.");
+            return _isReady ? 1 : throw NotReady;
+        }
+    }
+
+    // Reads whatever Value is set to, compared with the comparer it gets.
+    private sealed class SettableWatcher(
+        ITickCounter ticks,
+        IEqualityComparer<int> comparer) : Watcher<int>(ticks, comparer)
+    {
+        public int Value { get; set; }
+
+        protected override Result<int> Read()
+        {
+            return Value;
+        }
+    }
+
+    // Treats 2 values as equal when they're at most 1 apart.
+    private sealed class WithinOne : IEqualityComparer<int>
+    {
+        public bool Equals(int x, int y)
+        {
+            return Math.Abs(x - y) <= 1;
+        }
+
+        public int GetHashCode(int obj)
+        {
+            return 0;
         }
     }
 }

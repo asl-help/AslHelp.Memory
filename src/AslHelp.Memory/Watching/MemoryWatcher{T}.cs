@@ -11,6 +11,7 @@ public sealed class MemoryWatcher<T> : Watcher<T>
 {
     private readonly Address _address;
     private readonly long[] _offsets;
+    private readonly IMemoryReader _reader;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="MemoryWatcher{T}"/> class.
@@ -23,23 +24,25 @@ public sealed class MemoryWatcher<T> : Watcher<T>
     ///     <paramref name="ticks"/>, <paramref name="reader"/> or <paramref name="offsets"/> is <see langword="null"/>.
     /// </exception>
     public MemoryWatcher(ITickCounter ticks, IMemoryReader reader, Address address, params long[] offsets)
-        : base(ticks, reader)
+        : base(ticks)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(offsets);
 
+        _reader = reader;
         _address = address;
         _offsets = offsets;
     }
 
     /// <inheritdoc/>
-    protected override Result<T> Read(IMemoryReader reader)
+    protected override Result<T> Read()
     {
-        if (!reader.Deref(_address, _offsets).TryUnwrap(out var address, out var error))
+        if (!_reader.Deref(_address, _offsets).TryUnwrap(out var address, out var error))
         {
             return error;
         }
 
-        return reader.Read<T>(address);
+        return _reader.Read<T>(address);
     }
 
     /// <summary>
@@ -50,6 +53,6 @@ public sealed class MemoryWatcher<T> : Watcher<T>
     /// </returns>
     public override string ToString()
     {
-        return $"{typeof(T).Name} at {FormatPath(_address, _offsets)}";
+        return $"{typeof(T).Name} at {PointerPathFormatter.Format(_address, _offsets)}";
     }
 }

@@ -4,35 +4,59 @@ using System.Runtime.ExceptionServices;
 namespace AslHelp.Memory.Watching;
 
 /// <summary>
-///     Represents a value read from a target's memory and compared across ticks.
+///     Represents a value that is read at most once per tick and compared across reads.
 /// </summary>
 /// <remarks>
 ///     A watcher reads only when one of its values is accessed, and at most once per tick of its tick counter.
 /// </remarks>
 public abstract class Watcher
 {
-    private readonly ITickCounter _ticks;
-    private readonly IMemoryReader _reader;
-
+    private ExceptionDispatchInfo? _failure;
     private bool _isFresh;
     private long _readTick;
-    private ExceptionDispatchInfo? _failure;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="Watcher"/> class.
     /// </summary>
     /// <param name="ticks">The tick counter that limits the watcher to 1 read per tick.</param>
-    /// <param name="reader">The memory to read from.</param>
     /// <exception cref="ArgumentNullException">
-    ///     <paramref name="ticks"/> or <paramref name="reader"/> is <see langword="null"/>.
+    ///     <paramref name="ticks"/> is <see langword="null"/>.
     /// </exception>
-    private protected Watcher(ITickCounter ticks, IMemoryReader reader)
+    private protected Watcher(ITickCounter ticks)
     {
         ArgumentNullException.ThrowIfNull(ticks);
-        ArgumentNullException.ThrowIfNull(reader);
 
-        _ticks = ticks;
-        _reader = reader;
+        Ticks = ticks;
+    }
+
+    /// <summary>
+    ///     Gets a value indicating whether the latest read differs from the one before it. The first successful read
+    ///     only fills the values and isn't a change.
+    /// </summary>
+    public bool Changed
+    {
+        get
+        {
+            EnsureFresh();
+            return field;
+        }
+        private protected set;
+    }
+
+    /// <summary>
+    ///     Gets the value from the latest read as an object.
+    /// </summary>
+    /// <remarks>
+    ///     Boxes a value type on the first access and reuses the box while the value keeps the same bits, so an unchanged
+    ///     value doesn't allocate on each tick.
+    /// </remarks>
+    public object? Current
+    {
+        get
+        {
+            EnsureFresh();
+            return BoxCurrent();
+        }
     }
 
     /// <summary>
@@ -60,29 +84,58 @@ public abstract class Watcher
     ///     Gets the error of the latest read, or <see langword="null"/> when the read succeeded.
     /// </summary>
     /// <remarks>
-    ///     Doesn't read, so a check can look at a watcher without moving its values.
+    ///     Doesn't read, so a check can look at a watcher without moving its values. A read that threw sets it to an
+    ///     <see cref="ExceptionError"/> with the exception. A disabled watcher keeps the error of its latest read.
     /// </remarks>
     public ResultError? Error { get; private protected set; }
 
     /// <summary>
     ///     Gets or sets what happens to the values when a read fails. The default is <see cref="FailAction.Clear"/>.
     /// </summary>
+    /// <remarks>
+    ///     A read that throws fails too. Under <see cref="FailAction.Throw"/> its own exception comes back out.
+    /// </remarks>
     public FailAction FailAction { get; set; }
+
+    /// <summary>
+    ///     Gets the value from the read before the latest one as an object, however many ticks ago it was.
+    /// </summary>
+    /// <remarks>
+    ///     Is the same object <see cref="Current"/> returned before the change.
+    /// </remarks>
+    public object? Old
+    {
+        get
+        {
+            EnsureFresh();
+            return BoxOld();
+        }
+    }
+
+    /// <summary>
+    ///     Gets the tick counter that limits the watcher to 1 read per tick.
+    /// </summary>
+    protected ITickCounter Ticks { get; }
 
     /// <summary>
     ///     Reads the value on the first call in the current tick. Later calls in the same tick reuse that read, and a
     ///     disabled watcher skips it.
     /// </summary>
     /// <remarks>
-    ///     A read that threw throws again on every later call in the same tick, because each access in 1 tick has to
-    ///     get the same answer.
+    ///     A read that threw throws again on every later call in the same tick while the watcher is enabled, because
+    ///     each access in 1 tick has to get the same answer.
     /// </remarks>
     protected void EnsureFresh()
     {
-        long tick = _ticks.Value;
+        long tick = Ticks.Value;
         if (_isFresh && _readTick == tick)
         {
-            _failure?.Throw();
+            // Skip the failure of a read before Enabled turned false, because a disabled watcher skips the read.
+            if (Enabled)
+            {
+                _failure?.Throw();
+            }
+
             return;
         }
 
@@ -92,13 +145,13 @@ public abstract class Watcher
 
         if (!Enabled)
         {
-            Skip();
+            Changed = false;
             return;
         }
 
         try
         {
-            Refresh(_reader);
+            Refresh();
         }
         catch (Exception ex)
         {
@@ -120,7 +173,9 @@ public abstract class Watcher
         _failure = null;
     }
 
-    private protected abstract void Refresh(IMemoryReader reader);
+    private protected abstract object? BoxCurrent();
 
-    private protected abstract void Skip();
+    private protected abstract object? BoxOld();
+
+    private protected abstract void Refresh();
 }

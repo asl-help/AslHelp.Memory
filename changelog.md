@@ -10,7 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `GetMainModule` on `IMemoryModuleProvider` and `RemoteProcessMemory` for the module of the target's executable.
 - `MemoryModule.GetFileHash` for the SHA256 of the module file. Each `MemoryModule` reads the file once.
 - `Scan.ScanRegions` with a `MemoryRange` for scanning only the readable regions inside it.
-- `Watcher.Error` for the error of the latest read, so a failed read under `FailAction.Clear` or `KeepOld` still shows why it failed.
+- `Watcher.Error` for the error of the latest read, so a failed read under `FailAction.Clear` or `KeepOld` still shows why it failed. A `Read` that throws sets it to an `ExceptionError`, applies `FailAction` to the values and throws its exception again.
+- `Watcher.Current` and `Old` for the values as `object`. An unchanged value keeps its box. `Changed` moved up from `Watcher<T>`.
+- `Watcher.Ticks` for the tick counter of a derived watcher.
+- Explicit conversions between `Address` and `nint`.
 - `CaptureLayout`, `CaptureItem` and `CaptureSource` in `AslHelp.Memory.Patching` for the arguments a patched entry copies out of each call.
 - `CodePatch.Adopt`, `ReadCount` and `TryReadCall` for finding a patch at an entry and reading how often it ran and what the last call passed.
 - `IPatchInstaller` in `AslHelp.Memory.Patching` for what redirects an entry into a stub and keeps the target still while several watchers ask at once.
@@ -22,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Changed
 - **Breaking:** `IMemoryModuleProvider` has the new member `GetMainModule`, so an implementation needs it too.
+- **Breaking:** The `Watcher<T>` constructor doesn't take an `IMemoryReader` anymore and `Read` doesn't get one, so a derived watcher can read any source. The memory watchers keep their own reader.
 - **Breaking:** `Scan.For` is now `Scan.Create`.
 - **Breaking:** `ScanWindow.For` is now `ScanWindow.Create`.
 - **Breaking:** `Scan.Forward` is now `ScanWindow.Forward`.

@@ -7,10 +7,11 @@ namespace AslHelp.Memory.Watching;
 /// </summary>
 public sealed class StringWatcher : Watcher<string>
 {
-    private readonly int _length;
-    private readonly StringType _type;
     private readonly Address _address;
+    private readonly int _length;
     private readonly long[] _offsets;
+    private readonly IMemoryReader _reader;
+    private readonly StringType _type;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="StringWatcher"/> class.
@@ -37,11 +38,13 @@ public sealed class StringWatcher : Watcher<string>
         StringType type,
         Address address,
         params long[] offsets)
-        : base(ticks, reader)
+        : base(ticks)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         ArgumentOutOfRangeException.ThrowIfNegative(length);
         ArgumentNullException.ThrowIfNull(offsets);
 
+        _reader = reader;
         _length = length;
         _type = type;
         _address = address;
@@ -49,14 +52,14 @@ public sealed class StringWatcher : Watcher<string>
     }
 
     /// <inheritdoc/>
-    protected override Result<string> Read(IMemoryReader reader)
+    protected override Result<string> Read()
     {
-        if (!reader.Deref(_address, _offsets).TryUnwrap(out var address, out var error))
+        if (!_reader.Deref(_address, _offsets).TryUnwrap(out var address, out var error))
         {
             return error;
         }
 
-        return reader.ReadString(address, _length, _type);
+        return _reader.ReadString(address, _length, _type);
     }
 
     /// <summary>
@@ -67,6 +70,6 @@ public sealed class StringWatcher : Watcher<string>
     /// </returns>
     public override string ToString()
     {
-        return $"{_type} string at {FormatPath(_address, _offsets)}";
+        return $"{_type} string at {PointerPathFormatter.Format(_address, _offsets)}";
     }
 }

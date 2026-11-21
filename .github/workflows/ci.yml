@@ -45,6 +45,12 @@ jobs:
           dotnet test
           --no-build
 
+      - name: test x86
+        run: >
+          dotnet test test/AslHelp.Memory.Tests
+          --framework net4.8.1
+          --arch x86
+
   linux:
     runs-on: ubuntu-latest
 

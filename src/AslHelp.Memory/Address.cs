@@ -134,6 +134,40 @@ public readonly record struct Address(
     }
 
     /// <summary>
+    ///     Converts <paramref name="value"/> to an address.
+    /// </summary>
+    /// <remarks>
+    ///     Keeps the bits as an unsigned number of the host's pointer size, so <c>-1</c> is <c>0xFFFFFFFF</c> on a 32-bit
+    ///     host.
+    /// </remarks>
+    /// <param name="value">The address as a native pointer.</param>
+    /// <returns>
+    ///     The address.
+    /// </returns>
+    public static explicit operator Address(nint value)
+    {
+        return new(unchecked((nuint)value));
+    }
+
+    /// <summary>
+    ///     Converts <paramref name="address"/> to a native pointer.
+    /// </summary>
+    /// <remarks>
+    ///     Keeps the bits, so an address in the upper half of the host's pointer range becomes a negative number.
+    /// </remarks>
+    /// <param name="address">The address.</param>
+    /// <returns>
+    ///     The address as a native pointer.
+    /// </returns>
+    /// <exception cref="OverflowException">
+    ///     <paramref name="address"/> doesn't fit the host's pointer size.
+    /// </exception>
+    public static explicit operator nint(Address address)
+    {
+        return unchecked((nint)checked((nuint)address.Value));
+    }
+
+    /// <summary>
     ///     Compares this address to <paramref name="other"/> by value.
     /// </summary>
     /// <param name="other">The address to compare to.</param>
