@@ -158,16 +158,16 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return Result.Ok();
         }
 
-        if (!TryOpenForWrites(out var writeHandle, out int openError))
-        {
-            var refused = RemoteMemoryError.WriteHandleRefused(new Win32Exception(openError).Message);
-            _log.LogDebug($"{refused.Message}");
-
-            return refused;
-        }
-
         try
         {
+            if (!TryOpenForWrites(out var writeHandle, out int openError))
+            {
+                var refused = RemoteMemoryError.WriteHandleRefused(new Win32Exception(openError).Message);
+                _log.LogDebug($"{refused.Message}");
+
+                return refused;
+            }
+
             // Try the write as it is first, because a writable page needs no protection change and code a thread runs
             // keeps its rights.
             if (PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out nuint written))
@@ -463,6 +463,13 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         {
             opened.Dispose();
             opened = other;
+        }
+
+        // Close the handle again after a Dispose that ran during the open, because that Dispose found no handle to close.
+        if (_handle.IsClosed)
+        {
+            Interlocked.Exchange(ref _writeHandle, null)?.Dispose();
+            throw new ObjectDisposedException(nameof(RemoteProcessMemory));
         }
 
         writeHandle = opened;
