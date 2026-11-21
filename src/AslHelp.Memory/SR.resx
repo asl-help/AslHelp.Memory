@@ -79,7 +79,7 @@
     <value>A data directory has 16 entries.</value>
   </data>
   <data name="HostSizedType" xml:space="preserve">
-    <value>'{0}' is as wide as a pointer on the host, not in the target. Use ReadPointer instead.</value>
+    <value>The pointer {0} doesn't fit in '{1}' on this host. Use ReadPointer instead.</value>
   </data>
   <data name="InstallPoolFull" xml:space="preserve">
     <value>The pool at {0} doesn't have a slot left.</value>
@@ -305,9 +305,6 @@
   </data>
   <data name="StringTypeNotDefined" xml:space="preserve">
     <value>The string type isn't defined.</value>
-  </data>
-  <data name="TerminatorNotFound" xml:space="preserve">
-    <value>The string at {0} doesn't have a terminator within {1} characters.</value>
   </data>
   <data name="TextNotAddress" xml:space="preserve">
     <value>'{0}' isn't an address. An address is 0x followed by hex or a decimal number.</value>
