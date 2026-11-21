@@ -235,7 +235,6 @@ public class RemoteProcessMemoryTests
     }
 
     // A failed read logs the message of its error at trace level.
-    // A failed read logs the message of its error at trace level.
     [Test]
     public void Read_WithALogger_LogsTheFailedRead()
     {

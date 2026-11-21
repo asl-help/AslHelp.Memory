@@ -279,7 +279,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     /// <remarks>
     ///     The modules come from a Toolhelp snapshot, which gives a 32-bit process the SysWOW64 paths of its system
     ///     modules. When Windows refuses the snapshot, the modules come from the process handle, which gives those modules
-    ///     their System32 paths.
+    ///     their System32 paths. A path longer than the 259 characters of the snapshot comes from the process handle.
     /// </remarks>
     public Result<IReadOnlyList<MemoryModule>> GetModules()
     {
@@ -288,19 +288,15 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return RemoteMemoryError.ProcessClosed();
         }
 
-        if (GetSnapshotModules() is { } snapshotModules)
-        {
-            return snapshotModules;
-        }
-
         // Keeps the handle open for the raw calls, which take a HANDLE where Dispose can't reach it.
         bool added = false;
 
         try
         {
             _handle.DangerousAddRef(ref added);
+            var process = (HANDLE)_handle.DangerousGetHandle();
 
-            return GetModules((HANDLE)_handle.DangerousGetHandle());
+            return GetSnapshotModules(process) is { } snapshotModules ? snapshotModules : GetModules(process);
         }
         catch (ObjectDisposedException)
         {
@@ -316,27 +312,56 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         }
     }
 
-    private unsafe List<MemoryModule>? GetSnapshotModules()
+    private unsafe List<MemoryModule>? GetSnapshotModules(HANDLE process)
     {
-        using var snapshot = PInvoke.CreateToolhelp32Snapshot_SafeHandle(
-            CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE | CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE32,
-            ProcessId);
+        // Matches ERROR_BAD_LENGTH, which Windows returns while the module list of the process changes.
+        const int BadLength = 24;
 
-        MODULEENTRY32W entry = new() { dwSize = (uint)sizeof(MODULEENTRY32W) };
-
-        // Leave a refused snapshot to the process handle, because Windows refuses it while a process starts.
-        if (snapshot.IsInvalid || !PInvoke.Module32FirstW(snapshot, ref entry))
+        for (int attempt = 0; ; attempt++)
         {
-            _log.LogDebug($"{SR.FormatModuleSnapshotRefused(new Win32Exception(Marshal.GetLastWin32Error()).Message)}");
-            return null;
+            using var snapshot = PInvoke.CreateToolhelp32Snapshot_SafeHandle(
+                CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE | CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE32,
+                ProcessId);
+
+            MODULEENTRY32W entry = new() { dwSize = (uint)sizeof(MODULEENTRY32W) };
+
+            if (!snapshot.IsInvalid && PInvoke.Module32FirstW(snapshot, ref entry))
+            {
+                return ReadSnapshot(process, snapshot, ref entry);
+            }
+
+            int error = Marshal.GetLastWin32Error();
+
+            // Try a 2nd snapshot after a changing list and leave any other refusal to the process handle, because
+            // Windows refuses the snapshot while a process starts.
+            if (error != BadLength || attempt > 0)
+            {
+                _log.LogDebug($"{SR.FormatModuleSnapshotRefused(new Win32Exception(error).Message)}");
+                return null;
+            }
         }
+    }
+
+    private static unsafe List<MemoryModule> ReadSnapshot(HANDLE process, SafeHandle snapshot, ref MODULEENTRY32W entry)
+    {
+        // Matches the size of szExePath, which cuts a longer path short.
+        const int SnapshotPathLength = 260;
 
         List<MemoryModule> modules = [];
+        char[]? text = null;
 
         do
         {
+            string path = entry.szExePath.ToString();
+
+            // Take a path that fills szExePath from the process handle, because the snapshot cut it short.
+            if (path.Length >= SnapshotPathLength - 1)
+            {
+                path = GetFileName(process, (HMODULE)(nint)entry.modBaseAddr, text ??= new char[MaxPathLength]) ?? path;
+            }
+
             MemoryRange range = new(new((ulong)entry.modBaseAddr), entry.modBaseSize);
-            modules.Add(new(entry.szModule.ToString(), entry.szExePath.ToString(), range));
+            modules.Add(new(entry.szModule.ToString(), path, range));
         } while (PInvoke.Module32NextW(snapshot, ref entry));
 
         return modules;
