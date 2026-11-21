@@ -75,7 +75,8 @@ public static partial class MemoryReaderExtensions
         /// </summary>
         /// <remarks>
         ///     The read goes in chunks and halves a chunk that isn't readable, so a string that ends close to the end of
-        ///     readable memory still reads.
+        ///     readable memory still reads. A string without a terminator within <paramref name="maxLength"/> units is cut
+        ///     after <paramref name="maxLength"/> units.
         /// </remarks>
         /// <param name="address">The address of the first character.</param>
         /// <param name="type">The encoding of the string.</param>
@@ -124,13 +125,23 @@ public static partial class MemoryReaderExtensions
                 var read = reader.Read(address + filled, bytes.Slice(filled, size));
                 if (read.IsErr)
                 {
-                    if (chunk == 1)
+                    // Halve the units of the failed read, because a read shorter than the chunk would fail again at
+                    // the same size.
+                    int units = size / unit;
+                    if (units > 1)
                     {
-                        return read.Error;
+                        chunk = units / 2;
+                        continue;
                     }
 
-                    chunk /= 2;
-                    continue;
+                    // Cut a string that fills maxLength at the end of readable memory, because only its terminator is
+                    // missing.
+                    if (filled >= maxLength * unit)
+                    {
+                        return Decode(bytes, maxLength, type, order);
+                    }
+
+                    return read.Error;
                 }
 
                 filled += size;
@@ -141,11 +152,10 @@ public static partial class MemoryReaderExtensions
                     return Decode(bytes, (scanned / unit) + found, type, order);
                 }
 
-                // Leaves a split UTF-16 char for the next read to complete.
-                scanned += (filled - scanned) / unit * unit;
+                scanned = filled;
             }
 
-            return new UnterminatedStringError(address, maxLength);
+            return Decode(bytes, maxLength, type, order);
         }
     }
 

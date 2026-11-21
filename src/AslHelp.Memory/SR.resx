@@ -306,9 +306,6 @@
   <data name="StringTypeNotDefined" xml:space="preserve">
     <value>The string type isn't defined.</value>
   </data>
-  <data name="TerminatorNotFound" xml:space="preserve">
-    <value>The string at {0} doesn't have a terminator within {1} characters.</value>
-  </data>
   <data name="TextNotAddress" xml:space="preserve">
     <value>'{0}' isn't an address. An address is 0x followed by hex or a decimal number.</value>
   </data>

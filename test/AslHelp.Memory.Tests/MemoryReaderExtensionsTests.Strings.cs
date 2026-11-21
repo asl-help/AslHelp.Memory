@@ -45,13 +45,41 @@ public partial class MemoryReaderExtensionsTests
         Assert.That(memory.ReadString(new Address(Base), StringType.Utf16, 3).Unwrap(), Is.EqualTo("ok"));
     }
 
-    // ReadString returns an error when no terminator comes within the bound.
+    // ReadString cuts a string without a terminator within the bound after the bound, as a fixed-size buffer in a game
+    // fills it up to the last char.
     [Test]
-    public void ReadString_NoTerminatorWithinTheBound_ReturnsAnError()
+    public void ReadString_NoTerminatorWithinTheBound_CutsAtTheBound()
     {
         BufferMemory memory = new(new Address(Base), [(byte)'a', (byte)'b', (byte)'c', (byte)'d', 0], MemoryLayout.X86);
 
-        Assert.That(memory.ReadString(new Address(Base), StringType.Ascii, 3).IsErr, Is.True);
+        Assert.That(memory.ReadString(new Address(Base), StringType.Ascii, 3).Unwrap(), Is.EqualTo("abc"));
+    }
+
+    // ReadString returns the whole string when exactly the bound comes before the terminator.
+    [Test]
+    public void ReadString_TerminatorRightAfterTheBound_ReturnsTheWholeString()
+    {
+        BufferMemory memory = new(new Address(Base), [(byte)'a', (byte)'b', (byte)'c', 0], MemoryLayout.X86);
+
+        Assert.That(memory.ReadString(new Address(Base), StringType.Ascii, 3).Unwrap(), Is.EqualTo("abc"));
+    }
+
+    // ReadString counts the bound of a UTF-16 string in chars, so the cut keeps whole chars.
+    [Test]
+    public void ReadString_Utf16WithoutATerminatorWithinTheBound_CutsAtTheBound()
+    {
+        BufferMemory memory = new(new Address(Base), [(byte)'a', 0, (byte)'b', 0, (byte)'c', 0, (byte)'d', 0], MemoryLayout.X86);
+
+        Assert.That(memory.ReadString(new Address(Base), StringType.Utf16, 3).Unwrap(), Is.EqualTo("abc"));
+    }
+
+    // ReadString cuts a string that fills the bound at the end of readable memory, where its terminator would be.
+    [Test]
+    public void ReadString_NoTerminatorAtTheEnd_CutsAtTheBound()
+    {
+        BufferMemory memory = new(new Address(Base), [(byte)'a', (byte)'b', (byte)'c'], MemoryLayout.X86);
+
+        Assert.That(memory.ReadString(new Address(Base), StringType.Ascii, 3).Unwrap(), Is.EqualTo("abc"));
     }
 
     // ReadString reads a string that ends close to the end of readable memory.

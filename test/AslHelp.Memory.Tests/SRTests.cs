@@ -100,18 +100,6 @@ public class SRTests
         Assert.That(memory.Write(_missing, new byte[4]).Error!.Message, Is.EqualTo("Couldn't write 4 bytes at 0x10."));
     }
 
-    // A string read that runs out of its bound has the text with the rewritten wording.
-    [Test]
-    public void ReadString_NoTerminator_HasTheText()
-    {
-        byte[] bytes = Encoding.ASCII.GetBytes("abcdefgh");
-        BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
-
-        Assert.That(
-            memory.ReadString(_base, StringType.Ascii, 3).Error!.Message,
-            Is.EqualTo("The string at 0x1000 doesn't have a terminator within 3 characters."));
-    }
-
     // A host-sized read has the type's name in its text.
     [Test]
     public void Read_AHostSizedType_HasTheText()
