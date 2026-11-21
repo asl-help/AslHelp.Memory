@@ -10,7 +10,7 @@ namespace AslHelp.Memory.Watching;
 /// <remarks>
 ///     The length is fixed when the watcher is created, because a native array doesn't store its length.
 /// </remarks>
-/// <typeparam name="T">The unmanaged element type, other than <see langword="nint"/> or <see langword="nuint"/>.</typeparam>
+/// <typeparam name="T">The unmanaged element type.</typeparam>
 public sealed class ArrayWatcher<T> : Watcher<T[]>
     where T : unmanaged
 {

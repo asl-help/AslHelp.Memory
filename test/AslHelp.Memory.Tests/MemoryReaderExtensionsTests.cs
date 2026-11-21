@@ -1,4 +1,6 @@
+using AslHelp.Memory.Errors;
 using NUnit.Framework;
+using System;
 
 namespace AslHelp.Memory.Tests;
 
@@ -66,17 +68,46 @@ public partial class MemoryReaderExtensionsTests
         Assert.That(memory.Read<int>(new Address(Base - 1)).IsErr, Is.True);
     }
 
-    // A host-sized type is refused because its width depends on the host and not on the layout.
+    // A host-sized type reads as a pointer of the layout's size, because its own width follows the host.
     [Test]
-    public void Read_HostSizedTypes_ReturnAnError()
+    public void Read_HostSizedTypes_ReadAsPointers()
     {
-        BufferMemory memory = new(new Address(Base), new byte[8], MemoryLayout.X64);
+        BufferMemory memory = new(new Address(Base), [0x78, 0x56, 0x34, 0x12, 0xF0, 0xDE, 0xBC, 0x9A], MemoryLayout.X86);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(memory.Read<nint>(new Address(Base)).IsErr, Is.True);
-            Assert.That(memory.Read<nuint>(new Address(Base)).IsErr, Is.True);
-            Assert.That(memory.ReadArray<nint>(new Address(Base), 1).IsErr, Is.True);
+            Assert.That(memory.Read<nint>(new Address(Base)).Unwrap(), Is.EqualTo((nint)0x12345678));
+            Assert.That(memory.Read<nuint>(new Address(Base + 4)).Unwrap(), Is.EqualTo((nuint)0x9ABCDEF0u));
+            Assert.That(memory.ReadArray<nuint>(new Address(Base), 2).Unwrap(), Is.EqualTo(new nuint[] { 0x12345678, 0x9ABCDEF0u }));
+        }
+    }
+
+    // A 32-bit pointer with the high bit set reads as a positive nint on a 64-bit host, because pointers are
+    // zero-extended.
+    [Test]
+    public void Read_NintWithTheHighBitSetOnA64BitHost_IsZeroExtended()
+    {
+        Assume.That(IntPtr.Size, Is.EqualTo(sizeof(ulong)));
+        BufferMemory memory = new(new Address(Base), [0xF0, 0xDE, 0xBC, 0x9A], MemoryLayout.X86);
+
+        Assert.That(memory.Read<nint>(new Address(Base)).Unwrap(), Is.EqualTo(unchecked((nint)0x9ABCDEF0L)));
+    }
+
+    // A 64-bit pointer above 4 GB fits a 64-bit host but not a 32-bit one.
+    [Test]
+    public void Read_NintAbove4GB_FitsOnlyA64BitHost()
+    {
+        BufferMemory memory = new(new Address(Base), [0, 0, 0, 0, 1, 0, 0, 0], MemoryLayout.X64);
+
+        var value = memory.Read<nint>(new Address(Base));
+
+        if (IntPtr.Size == sizeof(ulong))
+        {
+            Assert.That(value.Unwrap(), Is.EqualTo(unchecked((nint)0x1_0000_0000L)));
+        }
+        else
+        {
+            Assert.That(value.UnwrapErr(), Is.TypeOf<HostSizedTypeError>());
         }
     }
 

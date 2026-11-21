@@ -26,6 +26,18 @@ public partial class WatcherTests
         }
     }
 
+    // A watcher of nint reads a pointer of the target's size.
+    [Test]
+    public void Current_Nint_ReadsAPointerOfTheTargetsSize()
+    {
+        BufferMemory memory = new(Address.Zero, [0x78, 0x56, 0x34, 0x12, 0xFF, 0xFF, 0xFF, 0xFF], MemoryLayout.X86);
+        ManualTicks ticks = new();
+
+        MemoryWatcher<nint> watcher = new(ticks, memory, Address.Zero);
+
+        Assert.That(watcher.Current, Is.EqualTo((nint)0x12345678));
+    }
+
     // A watcher no one accesses doesn't read.
     [Test]
     public void Ticks_WithoutAccess_ReadNothing()

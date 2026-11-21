@@ -5,7 +5,7 @@ namespace AslHelp.Memory.Watching;
 /// <summary>
 ///     Represents a watcher over a value of type <typeparamref name="T"/> at the end of a pointer path.
 /// </summary>
-/// <typeparam name="T">The unmanaged type to read, other than <see langword="nint"/> or <see langword="nuint"/>.</typeparam>
+/// <typeparam name="T">The unmanaged type to read.</typeparam>
 public sealed class MemoryWatcher<T> : Watcher<T>
     where T : unmanaged
 {

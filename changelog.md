@@ -48,6 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 - `ReadString` up to a terminator cuts a string without a terminator within `maxLength` after `maxLength` units instead of failing.
+- `Read` and `ReadArray` read `nint` and `nuint` as pointers of the layout's pointer size instead of failing, which makes `MemoryWatcher<nint>` work.
 - `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write. A process that refuses writes can still be read.
 - `RemoteProcessMemory` returns an error after `Dispose` instead of throwing `ObjectDisposedException`. A watcher that reads while the game exits gets that error.
 - `RemoteProcessMemory.GetRegions` fails when Windows refuses a region query instead of returning the regions up to that address.

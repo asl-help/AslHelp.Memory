@@ -100,15 +100,13 @@ public class SRTests
         Assert.That(memory.Write(_missing, new byte[4]).Error!.Message, Is.EqualTo("Couldn't write 4 bytes at 0x10."));
     }
 
-    // A host-sized read has the type's name in its text.
+    // A pointer too wide for a host-sized type has the pointer and the type's name in its text.
     [Test]
-    public void Read_AHostSizedType_HasTheText()
+    public void Read_APointerTooWideForTheHost_HasTheText()
     {
-        BufferMemory memory = new(_base, new byte[8], MemoryLayout.X64);
-
         Assert.That(
-            memory.Read<nint>(_base).Error!.Message,
-            Is.EqualTo("'IntPtr' is as wide as a pointer on the host, not in the target. Use ReadPointer instead."));
+            new HostSizedTypeError(typeof(nint), new Address(0x1_0000_0000)).Message,
+            Is.EqualTo("The pointer 0x100000000 doesn't fit in 'IntPtr' on this host. Use ReadPointer instead."));
     }
 
     // 2 failed reads of the same bytes compare equal, as they did when the message was the value.
