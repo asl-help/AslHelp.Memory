@@ -28,13 +28,22 @@ public class MemoryRegionExtensionsTests
         Assert.That(regions.MergeReadable(), Is.EqualTo([_first.Range, _third.Range]));
     }
 
-    // A region that can't be read ends a range and is dropped.
+    // A region without the read and execute rights ends a range and is dropped.
     [Test]
     public void MergeReadable_AnUnreadableRegion_EndsTheRangeAndIsDropped()
     {
-        MemoryRegion[] regions = [_first, _second with { Protection = MemoryProtection.Execute }, _third];
+        MemoryRegion[] regions = [_first, _second with { Protection = MemoryProtection.None }, _third];
 
         Assert.That(regions.MergeReadable(), Is.EqualTo([_first.Range, _third.Range]));
+    }
+
+    // An execute-only region joins the range, because a read from another process still gets its bytes.
+    [Test]
+    public void MergeReadable_AnExecuteOnlyRegion_JoinsTheRange()
+    {
+        MemoryRegion[] regions = [_first, _second with { Protection = MemoryProtection.Execute }, _third];
+
+        Assert.That(regions.MergeReadable(), Is.EqualTo([new MemoryRange(new Address(0x1000), 0x3000)]));
     }
 
     // No regions give no ranges.

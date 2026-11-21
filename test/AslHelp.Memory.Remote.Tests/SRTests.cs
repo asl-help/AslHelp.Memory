@@ -1,5 +1,6 @@
 using AslHelp.Memory.Remote.Errors;
 using NUnit.Framework;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 
@@ -35,6 +36,11 @@ public class SRTests
         using var process = Process.GetCurrentProcess();
         using RemoteProcessMemory memory = new(process);
 
-        Assert.That(memory.Read<int>(new Address(0x10)).Error!.Message, Is.EqualTo("Couldn't read 4 bytes at 0x10."));
+        // Matches ERROR_PARTIAL_COPY, which Windows gives for a page that isn't mapped.
+        const int PartialCopy = 299;
+
+        Assert.That(
+            memory.Read<int>(new Address(0x10)).Error!.Message,
+            Is.EqualTo($"Couldn't read 4 bytes at 0x10. {new Win32Exception(PartialCopy).Message}"));
     }
 }

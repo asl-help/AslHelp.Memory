@@ -1,3 +1,4 @@
+using AslHelp.Logging;
 using AslHelp.Memory.Remote.Errors;
 using AslHelp.Memory.Remote.Win32;
 using Microsoft.Win32.SafeHandles;
@@ -7,8 +8,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Diagnostics.ToolHelp;
 using Windows.Win32.System.Memory;
 using Windows.Win32.System.ProcessStatus;
 using Windows.Win32.System.Threading;
@@ -21,36 +24,48 @@ namespace AslHelp.Memory.Remote;
 [SupportedOSPlatform("windows")]
 public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryRegionProvider, IMemoryModuleProvider, IDisposable
 {
-    private const PROCESS_ACCESS_RIGHTS Access =
+    private const PROCESS_ACCESS_RIGHTS ReadAccess = PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_INFORMATION | PROCESS_ACCESS_RIGHTS.PROCESS_VM_READ;
+    private const PROCESS_ACCESS_RIGHTS WriteAccess =
         PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_INFORMATION
-        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_READ
-        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_WRITE
-        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_OPERATION;
+        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_OPERATION
+        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_WRITE;
 
     // The longest path the wide Windows APIs accept, in characters.
     private const int MaxPathLength = 32767;
 
     private readonly SafeFileHandle _handle;
+    private readonly Logger _log;
+
+    // Opens on the 1st write, because a process that refuses the rights to write can still be read.
+    private SafeFileHandle? _writeHandle;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="RemoteProcessMemory"/> class, opening
-    ///     <paramref name="process"/> for reads and writes.
+    ///     <paramref name="process"/> for reads.
     /// </summary>
     /// <param name="process">The process to open.</param>
+    /// <param name="log">The logger for failed reads, writes and listings. Omitting it logs nothing.</param>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="process"/> is <see langword="null"/>.
     /// </exception>
+    /// <remarks>
+    ///     The 1st write opens a 2nd handle with the rights to write, so a process that refuses them can still be read.
+    /// </remarks>
     /// <exception cref="Win32Exception">
-    ///     The process couldn't be opened or its bitness couldn't be found.
+    ///     The process couldn't be opened for reads or its bitness couldn't be found.
     /// </exception>
-    public RemoteProcessMemory(Process process)
+    public RemoteProcessMemory(
+        Process process,
+        Logger? log = null)
     {
         ArgumentNullException.ThrowIfNull(process);
+
+        _log = log ?? new Logger();
 
         int id = process.Id;
         ProcessId = (uint)id;
 
-        _handle = PInvoke.OpenProcess_SafeHandle(Access, false, (uint)id);
+        _handle = PInvoke.OpenProcess_SafeHandle(ReadAccess, false, (uint)id);
         if (_handle.IsInvalid)
         {
             throw new Win32Exception(Marshal.GetLastWin32Error(), SR.FormatProcessNotOpened(id));
@@ -82,12 +97,12 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     internal uint ProcessId { get; }
 
     /// <inheritdoc/>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
     public unsafe Result Read(Address address, Span<byte> buffer)
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         if (!TryGetHostPointer(address, out void* pointer))
         {
@@ -99,20 +114,39 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return Result.Ok();
         }
 
-        bool success = PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read);
+        try
+        {
+            bool success = PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read);
+            int win32Error = success ? 0 : Marshal.GetLastWin32Error();
 
-        return success && read == (nuint)buffer.Length
-            ? Result.Ok()
-            : new RemoteUnreadableError(address, buffer.Length);
+            if (success && read == (nuint)buffer.Length)
+            {
+                return Result.Ok();
+            }
+
+            RemoteUnreadableError error = new(address, buffer.Length, win32Error, read);
+            _log.LogTrace($"{error.Message}");
+
+            return error;
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
+        }
     }
 
     /// <inheritdoc/>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
+    /// <remarks>
+    ///     A write that Windows refuses, like one to a read-only page, makes each page writable for the write and puts its
+    ///     protection back after it. A code page keeps its execute right during the write.
+    /// </remarks>
     public unsafe Result Write(Address address, ReadOnlySpan<byte> buffer)
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         if (!TryGetHostPointer(address, out void* pointer))
         {
@@ -124,23 +158,81 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return Result.Ok();
         }
 
-        bool success = PInvoke.WriteProcessMemory(_handle, pointer, buffer, out nuint written);
+        try
+        {
+            if (!TryOpenForWrites(out var writeHandle, out int openError))
+            {
+                var refused = RemoteMemoryError.WriteHandleRefused(new Win32Exception(openError).Message);
+                _log.LogDebug($"{refused.Message}");
 
-        return success && written == (nuint)buffer.Length
-            ? Result.Ok()
-            : RemoteMemoryError.Unwritable(address, buffer.Length);
+                return refused;
+            }
+
+            // Try the write as it is first, because a writable page needs no protection change and code a thread runs
+            // keeps its rights.
+            if (PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out nuint written))
+            {
+                return written == (nuint)buffer.Length ? Result.Ok() : RemoteMemoryError.Unwritable(address, buffer.Length);
+            }
+
+            if (!PageProtection.TryMakeWritable(writeHandle, (nuint)pointer, buffer.Length, out var protection, out int protectError))
+            {
+                _log.LogTrace($"{SR.FormatWriteNotMadeWritable(address, new Win32Exception(protectError).Message)}");
+                return RemoteMemoryError.Unwritable(address, buffer.Length);
+            }
+
+            // Take the error before the restore, because the restore overwrites it.
+            bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out written);
+            int writeError = success ? 0 : Marshal.GetLastWin32Error();
+
+            if (!protection.TryRestore(out nuint refusedAt, out int restoreError))
+            {
+                _log.LogWarning($"{SR.FormatWritePageStaysWritable(new Address(refusedAt), new Win32Exception(restoreError).Message)}");
+            }
+
+            if (!success)
+            {
+                var refused = RemoteMemoryError.WriteRefused(address, buffer.Length, new Win32Exception(writeError).Message);
+                _log.LogTrace($"{refused.Message}");
+
+                return refused;
+            }
+
+            return written == (nuint)buffer.Length ? Result.Ok() : RemoteMemoryError.Unwritable(address, buffer.Length);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
+        }
     }
 
     /// <inheritdoc/>
     /// <remarks>
     ///     A region with <c>PAGE_GUARD</c> or <c>PAGE_NOACCESS</c> reports <see cref="MemoryProtection.None"/>.
     /// </remarks>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
-    public unsafe Result<IReadOnlyList<MemoryRegion>> GetRegions(MemoryRange range)
+    public Result<IReadOnlyList<MemoryRegion>> GetRegions(MemoryRange range)
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
+
+        try
+        {
+            return ListRegions(range);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
+        }
+    }
+
+    private unsafe Result<IReadOnlyList<MemoryRegion>> ListRegions(MemoryRange range)
+    {
+        // Matches ERROR_INVALID_PARAMETER, which Windows returns for an address above the top of user memory.
+        const int InvalidParameter = 87;
 
         List<MemoryRegion> regions = [];
         var address = range.Start;
@@ -150,7 +242,17 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         {
             if (NativeMethods.VirtualQueryEx(_handle, pointer, out var info, (nuint)sizeof(MemoryBasicInformation)) == 0)
             {
-                break;
+                int error = Marshal.GetLastWin32Error();
+
+                // End the list at the top of user memory and fail on any other refusal, because a short list reads as a
+                // scan that found nothing.
+                if (error == InvalidParameter)
+                {
+                    _log.LogDebug($"{SR.FormatRegionsEnded(address)}");
+                    break;
+                }
+
+                return RemoteMemoryError.RegionsUnavailable(address, new Win32Exception(error).Message);
             }
 
             Address start = new(info.BaseAddress);
@@ -175,15 +277,16 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     A 64-bit host gets the System32 path for a system module of a 32-bit process, though the process loaded the
-    ///     SysWOW64 file.
+    ///     The modules come from a Toolhelp snapshot, which gives a 32-bit process the SysWOW64 paths of its system
+    ///     modules. When Windows refuses the snapshot, the modules come from the process handle, which gives those modules
+    ///     their System32 paths. A path longer than the 259 characters of the snapshot comes from the process handle.
     /// </remarks>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
     public Result<IReadOnlyList<MemoryModule>> GetModules()
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         // Keeps the handle open for the raw calls, which take a HANDLE where Dispose can't reach it.
         bool added = false;
@@ -191,8 +294,14 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         try
         {
             _handle.DangerousAddRef(ref added);
+            var process = (HANDLE)_handle.DangerousGetHandle();
 
-            return GetModules((HANDLE)_handle.DangerousGetHandle());
+            return GetSnapshotModules(process) is { } snapshotModules ? snapshotModules : GetModules(process);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
         }
         finally
         {
@@ -201,6 +310,61 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
                 _handle.DangerousRelease();
             }
         }
+    }
+
+    private unsafe List<MemoryModule>? GetSnapshotModules(HANDLE process)
+    {
+        // Matches ERROR_BAD_LENGTH, which Windows returns while the module list of the process changes.
+        const int BadLength = 24;
+
+        for (int attempt = 0; ; attempt++)
+        {
+            using var snapshot = PInvoke.CreateToolhelp32Snapshot_SafeHandle(
+                CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE | CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPMODULE32,
+                ProcessId);
+
+            MODULEENTRY32W entry = new() { dwSize = (uint)sizeof(MODULEENTRY32W) };
+
+            if (!snapshot.IsInvalid && PInvoke.Module32FirstW(snapshot, ref entry))
+            {
+                return ReadSnapshot(process, snapshot, ref entry);
+            }
+
+            int error = Marshal.GetLastWin32Error();
+
+            // Try a 2nd snapshot after a changing list and leave any other refusal to the process handle, because
+            // Windows refuses the snapshot while a process starts.
+            if (error != BadLength || attempt > 0)
+            {
+                _log.LogDebug($"{SR.FormatModuleSnapshotRefused(new Win32Exception(error).Message)}");
+                return null;
+            }
+        }
+    }
+
+    private static unsafe List<MemoryModule> ReadSnapshot(HANDLE process, SafeHandle snapshot, ref MODULEENTRY32W entry)
+    {
+        // Matches the size of szExePath, which cuts a longer path short.
+        const int SnapshotPathLength = 260;
+
+        List<MemoryModule> modules = [];
+        char[]? text = null;
+
+        do
+        {
+            string path = entry.szExePath.ToString();
+
+            // Take a path that fills szExePath from the process handle, because the snapshot cut it short.
+            if (path.Length >= SnapshotPathLength - 1)
+            {
+                path = GetFileName(process, (HMODULE)(nint)entry.modBaseAddr, text ??= new char[MaxPathLength]) ?? path;
+            }
+
+            MemoryRange range = new(new((ulong)entry.modBaseAddr), entry.modBaseSize);
+            modules.Add(new(entry.szModule.ToString(), path, range));
+        } while (PInvoke.Module32NextW(snapshot, ref entry));
+
+        return modules;
     }
 
     private static unsafe Result<IReadOnlyList<MemoryModule>> GetModules(HANDLE process)
@@ -249,12 +413,12 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     ///     Windows lists the executable of a process 1st, so this is the 1st module it lists, as in
     ///     <see cref="Process.MainModule"/>.
     /// </remarks>
-    /// <exception cref="ObjectDisposedException">
-    ///     The instance is disposed.
-    /// </exception>
     public Result<MemoryModule> GetMainModule()
     {
-        ObjectDisposedException.ThrowIf(_handle.IsClosed, this);
+        if (_handle.IsClosed)
+        {
+            return RemoteMemoryError.ProcessClosed();
+        }
 
         // Keeps the handle open for the raw calls, which take a HANDLE where Dispose can't reach it.
         bool added = false;
@@ -264,6 +428,11 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             _handle.DangerousAddRef(ref added);
 
             return GetMainModule((HANDLE)_handle.DangerousGetHandle());
+        }
+        catch (ObjectDisposedException)
+        {
+            // Fail like a closed handle, because Dispose on another thread can close it after the check.
+            return RemoteMemoryError.ProcessClosed();
         }
         finally
         {
@@ -294,11 +463,50 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     }
 
     /// <summary>
-    ///     Closes the handle to the process.
+    ///     Closes the handles to the process.
     /// </summary>
     public void Dispose()
     {
         _handle.Dispose();
+        Interlocked.Exchange(ref _writeHandle, null)?.Dispose();
+    }
+
+    private bool TryOpenForWrites(out SafeFileHandle writeHandle, out int win32Error)
+    {
+        win32Error = 0;
+
+        if (Volatile.Read(ref _writeHandle) is { } open)
+        {
+            writeHandle = open;
+            return true;
+        }
+
+        var opened = PInvoke.OpenProcess_SafeHandle(WriteAccess, false, ProcessId);
+        if (opened.IsInvalid)
+        {
+            win32Error = Marshal.GetLastWin32Error();
+            opened.Dispose();
+
+            writeHandle = null!;
+            return false;
+        }
+
+        // Keep the handle of the 1st thread, because 2 threads can write at once and only 1 handle gets disposed.
+        if (Interlocked.CompareExchange(ref _writeHandle, opened, null) is { } other)
+        {
+            opened.Dispose();
+            opened = other;
+        }
+
+        // Close the handle again after a Dispose that ran during the open, because that Dispose found no handle to close.
+        if (_handle.IsClosed)
+        {
+            Interlocked.Exchange(ref _writeHandle, null)?.Dispose();
+            throw new ObjectDisposedException(nameof(RemoteProcessMemory));
+        }
+
+        writeHandle = opened;
+        return true;
     }
 
     private static unsafe MemoryModule? Describe(HANDLE process, HMODULE module, char[] text)
@@ -309,13 +517,15 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
             return null;
         }
 
-        string? name = GetBaseName(process, module, text);
-        if (name is null)
+        string? path = GetFileName(process, module, text);
+
+        // Take the name from the path, because Windows can refuse the base name of a module that is still loading.
+        string? name = GetBaseName(process, module, text) ?? System.IO.Path.GetFileName(path);
+        if (string.IsNullOrEmpty(name))
         {
             return null;
         }
 
-        string? path = GetFileName(process, module, text);
         MemoryRange range = new(new((ulong)info.lpBaseOfDll), info.SizeOfImage);
 
         return new(name, path, range);

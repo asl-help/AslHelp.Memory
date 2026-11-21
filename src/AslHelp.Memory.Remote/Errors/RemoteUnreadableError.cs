@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace AslHelp.Memory.Remote.Errors;
 
 /// <summary>
@@ -8,8 +10,14 @@ namespace AslHelp.Memory.Remote.Errors;
 /// </remarks>
 /// <param name="Address">The address of the first byte.</param>
 /// <param name="Size">The number of bytes.</param>
-internal sealed record RemoteUnreadableError(Address Address, int Size) : ResultError
+/// <param name="Win32Error">The system error of the read, 0 when Windows didn't report one.</param>
+/// <param name="BytesRead">The number of bytes Windows read before it stopped.</param>
+internal sealed record RemoteUnreadableError(Address Address, int Size, int Win32Error = 0, nuint BytesRead = 0) : ResultError
 {
     /// <inheritdoc/>
-    public override string Message => SR.FormatUnreadable(Size, Address);
+    public override string Message => Win32Error != 0
+        ? SR.FormatReadFailed(Size, Address, new Win32Exception(Win32Error).Message)
+        : BytesRead > 0
+            ? SR.FormatReadIncomplete(BytesRead, Size, Address)
+            : SR.FormatUnreadable(Size, Address);
 }

@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `CodePatch.Install` for writing a planned patch's stub into a `PatchPool` slot and redirecting the entry with 1 aligned 8-byte write while the target's threads are suspended, with `Restore` for putting the displaced bytes back the same way.
 - `IPatchWriter` and `IThreadSuspension` in `AslHelp.Memory.Patching` for the writes and thread suspension a `PatchSession` needs from a process, so a package can supply them for its platform.
 - `PatchSession` in `AslHelp.Memory.Patching`, the `IPatchInstaller` that keeps the ledger of 1 run. It adopts a patch already at an entry, returns the standing patch for a repeated entry, shares a `PatchPool` between entries in its reach and on `Dispose` puts every entry back before releasing each pool no thread stands in.
+- An optional `Logger` for `RemoteProcessMemory`, which logs failed reads and writes at trace level, refused handles and module snapshots at debug level and a page that stays writable after a write as a warning.
 - `RemotePatchWriter` in `AslHelp.Memory.Remote`, the `IPatchWriter` for a running Windows process. It reserves memory within a relative jump of an anchor, writes code with each page's own protection put back and suspends the target's threads while a patch is written.
 
 ### Changed
@@ -37,6 +38,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - **Breaking:** A `branch` read in a route document is now `displacement`.
 - **Breaking:** `SearchStep.Search` is now `Scan`.
 - The errors for a missing string terminator, scan pattern, pool slot and export table now read `doesn't have a` instead of `has no`.
+
+### Fixed
+- `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write. A process that refuses writes can still be read.
+- `RemoteProcessMemory` returns an error after `Dispose` instead of throwing `ObjectDisposedException`. A watcher that reads while the game exits gets that error.
+- `RemoteProcessMemory.GetRegions` fails when Windows refuses a region query instead of returning the regions up to that address.
+- `RemoteProcessMemory.GetModules` gives a 32-bit process the SysWOW64 paths of its system modules, which are the files `GetFileHash` and `GetFileVersion` need to read.
+- `RemoteProcessMemory.GetMainModule`, and `GetModules` when Windows refuses the module snapshot, take the name of a module from its path when Windows refuses its base name, instead of leaving the module out.
+- `RemoteProcessMemory.Write` makes a read-only or code page writable when Windows refuses the write and puts its protection back after it. A write Windows still refuses keeps the system message in its error.
+- A failed read of `RemoteProcessMemory` keeps the system message and the number of bytes Windows read in its error. `Watcher.Error` shows both.
+- `MergeReadable` and `Scan.ScanRegions` count an execute-only `PAGE_EXECUTE` region as readable.
 
 ## [0.1.0-alpha.1] - 2026-10-25
 
