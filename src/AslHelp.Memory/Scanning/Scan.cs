@@ -18,6 +18,9 @@ public static class Scan
     /// </summary>
     public const int ChunkSize = 64 * 1024;
 
+    // The size a failed window read is split down to, because memory is readable per page.
+    private const int PageSize = 4 * 1024;
+
     private static readonly MemoryRange _allMemory = new(Address.Zero, ulong.MaxValue);
 
     /// <summary>
@@ -84,17 +87,9 @@ public static class Scan
             yield break;
         }
 
-        for (int from = 0; from + pattern.Length <= buffer.Length;)
+        for (int from = 0, match; (match = NextMatch(pattern, buffer.Span, ref from)) >= 0;)
         {
-            int hit = pattern.IndexOf(buffer.Span[from..]);
-            if (hit < 0)
-            {
-                yield break;
-            }
-
-            from += hit;
-            yield return from;
-            from++;
+            yield return match;
         }
     }
 
@@ -378,20 +373,112 @@ public static class Scan
 
         try
         {
-            if (reader.Read(window.Start, buffer.AsSpan(0, size)).IsErr)
+            if (reader.Read(window.Start, buffer.AsSpan(0, size)).IsOk)
             {
+                for (int from = 0, match; (match = NextMatch(pattern, buffer.AsSpan(0, size), ref from)) >= 0;)
+                {
+                    yield return window.Start + match;
+                }
+
                 yield break;
             }
 
-            foreach (int offset in ScanBuffer(buffer.AsMemory(0, size), pattern))
+            foreach (var (partStart, partEnd) in ReadParts(reader, window, buffer))
             {
-                yield return window.Start + offset;
+                for (int from = partStart, match; (match = NextMatch(pattern, buffer.AsSpan(0, partEnd), ref from)) >= 0;)
+                {
+                    yield return window.Start + match;
+                }
             }
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
         }
+    }
+
+    // Reads the readable parts of a window whose 1 read failed, each as offsets into the buffer in ascending order.
+    // Asks for the regions when the reader lists them, because that costs 1 call. Splits the failed read at page borders
+    // otherwise.
+    private static List<(int Start, int End)> ReadParts(IMemoryReader reader, MemoryRange window, byte[] buffer)
+    {
+        List<(int Start, int End)> parts = [];
+
+        if (reader is IMemoryRegionProvider provider && ReadableRanges(provider, window).TryUnwrap(out var readable))
+        {
+            foreach (var range in ClampIterator(readable, window))
+            {
+                int from = (int)(range.Start.Value - window.Start.Value);
+                ReadOrSplit(reader, window.Start, buffer, from, from + (int)range.Size, parts);
+            }
+
+            return parts;
+        }
+
+        SplitPart(reader, window.Start, buffer, 0, (int)window.Size, parts);
+        return parts;
+    }
+
+    // Adds the part when it reads and splits it otherwise. Joins a part to the one before when they touch, so a match
+    // across both is found.
+    private static void ReadOrSplit(IMemoryReader reader, Address start, byte[] buffer, int from, int to, List<(int Start, int End)> parts)
+    {
+        if (reader.Read(start + from, buffer.AsSpan(from, to - from)).IsErr)
+        {
+            SplitPart(reader, start, buffer, from, to, parts);
+            return;
+        }
+
+        if (parts.Count > 0 && parts[^1].End == from)
+        {
+            parts[^1] = (parts[^1].Start, to);
+        }
+        else
+        {
+            parts.Add((from, to));
+        }
+    }
+
+    // Splits a part that failed to read at the page border nearest its middle, because memory is readable per page. A
+    // part inside 1 page is left out.
+    private static void SplitPart(IMemoryReader reader, Address start, byte[] buffer, int from, int to, List<(int Start, int End)> parts)
+    {
+        // Page borders sit at the offsets where offset + misalign is a multiple of PageSize.
+        long misalign = (long)(start.Value & (PageSize - 1));
+        long middle = from + ((to - from) / 2);
+        long border = ((middle + misalign) / PageSize * PageSize) - misalign;
+        if (border <= from)
+        {
+            border += PageSize;
+        }
+
+        if (border >= to)
+        {
+            return;
+        }
+
+        ReadOrSplit(reader, start, buffer, from, (int)border, parts);
+        ReadOrSplit(reader, start, buffer, (int)border, to, parts);
+    }
+
+    // Returns the offset of the next match at or after from and moves from past it. Returns -1 when no match is left.
+    private static int NextMatch(ScanPattern pattern, ReadOnlySpan<byte> data, ref int from)
+    {
+        if (data.Length - from < pattern.Length)
+        {
+            return -1;
+        }
+
+        int hit = pattern.IndexOf(data[from..]);
+        if (hit < 0)
+        {
+            from = data.Length;
+            return -1;
+        }
+
+        int match = from + hit;
+        from = match + 1;
+        return match;
     }
 
     private static IEnumerable<Address> ScanChunks(IMemoryReader reader, MemoryRange range, ScanPattern pattern)
@@ -419,17 +506,9 @@ public static class Scan
 
                 if (reader.Read(chunkStart, buffer.AsSpan(0, taken)).IsOk)
                 {
-                    for (int from = 0; ;)
+                    for (int from = 0, match; (match = NextMatch(pattern, buffer.AsSpan(0, taken), ref from)) >= 0;)
                     {
-                        int hit = pattern.IndexOf(buffer.AsSpan(from, taken - from));
-                        if (hit < 0)
-                        {
-                            break;
-                        }
-
-                        from += hit;
-                        yield return chunkStart + from;
-                        from++;
+                        yield return chunkStart + match;
                     }
                 }
 

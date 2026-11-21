@@ -1,6 +1,7 @@
 using AslHelp.Memory.Scanning;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace AslHelp.Memory.Tests.Scanning;
@@ -43,6 +44,77 @@ public class ScanStepTests
         {
             Assert.That(Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Forward(size).Create("99")), Is.Empty);
             Assert.That(Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Backward(size).Create("99")), Is.Empty);
+        }
+    }
+
+    // A window that reaches past the end of readable memory still searches the readable part.
+    [Test]
+    public void ScanRange_AWindowPastTheEndOfReadableMemory_SearchesTheReadablePart()
+    {
+        byte[] bytes = new byte[0x3000];
+        bytes[0x2FF0] = 0x99;
+        BufferMemory memory = new(_base, bytes, MemoryLayout.X64);
+
+        var found = Scan.ScanRange(memory, new(_base, 0x10000), ScanWindow.Forward(0x8000).Create("99"));
+
+        Assert.That(found, Is.EqualTo([_base + 0x2FF0]));
+    }
+
+    // A window across an unreadable page still searches the pages on both sides of it.
+    [Test]
+    public void ScanRange_AWindowAcrossAnUnreadablePage_SearchesBothSides()
+    {
+        byte[] bytes = new byte[0x4000];
+        bytes[0x800] = 0x99;
+        bytes[0x3800] = 0x99;
+        HoleMemory memory = new(new(_base, bytes, MemoryLayout.X64), new(_base + 0x2000, 0x1000));
+
+        var found = Scan.ScanRange(memory, new(_base, 0x4000), ScanWindow.Forward(0x4000).Create("99"));
+
+        Assert.That(found, Is.EqualTo([_base + 0x800, _base + 0x3800]));
+    }
+
+    // A window that ends half a page into an unreadable page still searches the readable page before it.
+    [Test]
+    public void ScanRange_AWindowEndingInAnUnreadablePage_SearchesThePageBefore()
+    {
+        byte[] bytes = new byte[0x2000];
+        bytes[0xE00] = 0x99;
+        HoleMemory memory = new(new(_base, bytes, MemoryLayout.X64), new(_base + 0x1000, 0x1000));
+
+        var found = Scan.ScanRange(memory, new(_base, 0x1800), ScanWindow.Forward(0x1800).Create("99"));
+
+        Assert.That(found, Is.EqualTo([_base + 0xE00]));
+    }
+
+    // A window that starts inside a page splits at the page borders, so the part before the unreadable page is searched.
+    [Test]
+    public void ScanRange_AWindowStartingInsideAPage_SplitsAtThePageBorders()
+    {
+        byte[] bytes = new byte[0x3000];
+        bytes[0xF00] = 0x99;
+        HoleMemory memory = new(new(_base, bytes, MemoryLayout.X64), new(_base + 0x1000, 0x1000));
+
+        var found = Scan.ScanRange(memory, new(_base + 0x100, 0x1800), ScanWindow.Forward(0x1800).Create("99"));
+
+        Assert.That(found, Is.EqualTo([_base + 0xF00]));
+    }
+
+    // A reader that lists its regions reads each readable part once instead of splitting the failed read.
+    [Test]
+    public void ScanRange_AWindowOverListedRegions_ReadsEachReadablePartOnce()
+    {
+        byte[] bytes = new byte[0x4000];
+        bytes[0x800] = 0x99;
+        bytes[0x3800] = 0x99;
+        RegionHoleMemory memory = new(new(_base, bytes, MemoryLayout.X64), new(_base + 0x2000, 0x1000));
+
+        var found = Scan.ScanRange(memory, new(_base, 0x4000), ScanWindow.Forward(0x4000).Create("99")).ToList();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(found, Is.EqualTo([_base + 0x800, _base + 0x3800]));
+            Assert.That(memory.Reads, Is.EqualTo(3));
         }
     }
 
@@ -172,6 +244,49 @@ public class ScanStepTests
         BufferMemory memory = new(_base, [], MemoryLayout.X64);
 
         Assert.Throws<ArgumentException>(() => Scan.ScanRange(memory, memory.Range, []));
+    }
+}
+
+// Fails every read that touches the hole, like a guard page in the middle of mapped memory.
+file sealed class HoleMemory(
+    BufferMemory memory,
+    MemoryRange hole) : IMemoryReader
+{
+    public MemoryLayout Layout => memory.Layout;
+
+    public Result Read(Address address, Span<byte> buffer)
+    {
+        bool touchesHole = address < hole.End && address + buffer.Length > hole.Start;
+        return memory.Read(touchesHole ? memory.Range.End : address, buffer);
+    }
+}
+
+// Fails every read that touches the hole and lists the hole as a region that allows no access.
+file sealed class RegionHoleMemory(
+    BufferMemory memory,
+    MemoryRange hole) : IMemoryReader, IMemoryRegionProvider
+{
+    public int Reads { get; private set; }
+
+    public MemoryLayout Layout => memory.Layout;
+
+    public Result Read(Address address, Span<byte> buffer)
+    {
+        Reads++;
+        bool touchesHole = address < hole.End && address + buffer.Length > hole.Start;
+        return memory.Read(touchesHole ? memory.Range.End : address, buffer);
+    }
+
+    public Result<IReadOnlyList<MemoryRegion>> GetRegions(MemoryRange range)
+    {
+        MemoryRegion[] regions =
+        [
+            new(new(memory.Range.Start, hole.Start.Value - memory.Range.Start.Value), MemoryProtection.Read),
+            new(hole, MemoryProtection.None),
+            new(new(hole.End, memory.Range.End.Value - hole.End.Value), MemoryProtection.Read),
+        ];
+
+        return regions;
     }
 }
 
