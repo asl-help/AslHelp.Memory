@@ -1,5 +1,6 @@
 using AslHelp.Logging;
 using AslHelp.Memory.Remote.Errors;
+using AslHelp.Memory.Scanning;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -7,6 +8,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using Windows.Win32;
+using Windows.Win32.System.Memory;
 
 namespace AslHelp.Memory.Remote.Tests;
 
@@ -195,6 +198,43 @@ public class RemoteProcessMemoryTests
         Assert.That(error.Message, Is.EqualTo("Read only 3 of 8 bytes at 0x1000."));
     }
 
+    // An execute-only page reads from another process and a region scan reaches it.
+    [Test]
+    public unsafe void Read_ExecuteOnlyPage_ReadsAndScansTheBytes()
+    {
+        var host = _process.SafeHandle;
+        byte* page = (byte*)PInvoke.VirtualAllocEx(
+            host,
+            null,
+            0x1000,
+            VIRTUAL_ALLOCATION_TYPE.MEM_COMMIT | VIRTUAL_ALLOCATION_TYPE.MEM_RESERVE,
+            PAGE_PROTECTION_FLAGS.PAGE_READWRITE);
+
+        Assert.That((nint)page, Is.Not.Zero);
+
+        try
+        {
+            page[0] = 0xC3;
+            page[1] = 0x5A;
+            Assert.That((bool)PInvoke.VirtualProtectEx(host, page, 0x1000, PAGE_PROTECTION_FLAGS.PAGE_EXECUTE, out _), Is.True);
+
+            Address address = new((ulong)page);
+            byte[] read = new byte[2];
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(_memory.Read(address, read).IsOk, Is.True);
+                Assert.That(read, Is.EqualTo(new byte[] { 0xC3, 0x5A }));
+                Assert.That(Scan.ScanRegions(_memory, new MemoryRange(address, 0x1000), ScanPattern.Parse("C3 5A")).Unwrap(), Is.EqualTo([address]));
+            }
+        }
+        finally
+        {
+            PInvoke.VirtualFreeEx(host, page, 0, VIRTUAL_FREE_TYPE.MEM_RELEASE);
+        }
+    }
+
+    // A failed read logs the message of its error at trace level.
     // A failed read logs the message of its error at trace level.
     [Test]
     public void Read_WithALogger_LogsTheFailedRead()

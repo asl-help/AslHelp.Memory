@@ -16,7 +16,8 @@ public static class MemoryRegionExtensions
         /// <remarks>
         ///     The regions must be in ascending order without overlaps, as
         ///     <see cref="IMemoryRegionProvider.GetRegions(MemoryRange)"/> returns them. A gap between 2 regions ends a
-        ///     range. A region that can't be read also ends a range and is left out.
+        ///     range. A region without the read and execute rights also ends a range and is left out. An execute-only
+        ///     region counts as readable, because a read from another process still gets its bytes.
         /// </remarks>
         /// <returns>
         ///     The readable ranges in ascending order.
@@ -38,7 +39,7 @@ public static class MemoryRegionExtensions
 
         foreach (var region in regions)
         {
-            if ((region.Protection & MemoryProtection.Read) == 0)
+            if ((region.Protection & (MemoryProtection.Read | MemoryProtection.Execute)) == 0)
             {
                 if (current.Size > 0)
                 {
