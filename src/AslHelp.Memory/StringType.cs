@@ -6,6 +6,13 @@ namespace AslHelp.Memory;
 public enum StringType
 {
     /// <summary>
+    ///     UTF-16 when the first 2 chars look like Latin text in UTF-16, otherwise UTF-8. A read of a given length looks
+    ///     at its first 4 bytes and counts the length in the units of the encoding it picks. When fewer than 4 bytes are
+    ///     readable, it reads the length as UTF-8. A read up to a terminator reads UTF-8.
+    /// </summary>
+    Auto,
+
+    /// <summary>
     ///     One byte per character, ASCII.
     /// </summary>
     Ascii,

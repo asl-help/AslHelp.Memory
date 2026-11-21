@@ -20,7 +20,8 @@ public sealed class StringWatcher : Watcher<string>
     /// <param name="reader">The memory to read from.</param>
     /// <param name="length">
     ///     The number of units to read, counted in bytes for <see cref="StringType.Ascii"/> and
-    ///     <see cref="StringType.Utf8"/> and in chars for <see cref="StringType.Utf16"/>.
+    ///     <see cref="StringType.Utf8"/>, in chars for <see cref="StringType.Utf16"/> and in the units of the picked
+    ///     encoding for <see cref="StringType.Auto"/>.
     /// </param>
     /// <param name="type">The encoding of the string.</param>
     /// <param name="address">The address the path starts at.</param>

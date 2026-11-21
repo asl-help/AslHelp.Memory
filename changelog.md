@@ -22,10 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `PatchSession` in `AslHelp.Memory.Patching`, the `IPatchInstaller` that keeps the ledger of 1 run. It adopts a patch already at an entry, returns the standing patch for a repeated entry, shares a `PatchPool` between entries in its reach and on `Dispose` puts every entry back before releasing each pool no thread stands in.
 - An optional `Logger` for `RemoteProcessMemory`, which logs failed reads and writes at trace level, refused handles and module snapshots at debug level and a page that stays writable after a write as a warning.
 - `RemotePatchWriter` in `AslHelp.Memory.Remote`, the `IPatchWriter` for a running Windows process. It reserves memory within a relative jump of an anchor, writes code with each page's own protection put back and suspends the target's threads while a patch is written.
+- `StringType.Auto` for `ReadString` and `StringWatcher`. With a length, it reads a string as UTF-16 when the first 2 chars look like Latin text in UTF-16 and as UTF-8 otherwise. Up to a terminator, it reads UTF-8.
 
 ### Changed
 - **Breaking:** `IMemoryModuleProvider` has the new member `GetMainModule`, so an implementation needs it too.
 - **Breaking:** The `Watcher<T>` constructor doesn't take an `IMemoryReader` anymore and `Read` doesn't get one, so a derived watcher can read any source. The memory watchers keep their own reader.
+- **Breaking:** `StringType.Ascii` is now 1, after `Auto`, which is the default value now.
 - **Breaking:** `Scan.For` is now `Scan.Create`.
 - **Breaking:** `ScanWindow.For` is now `ScanWindow.Create`.
 - **Breaking:** `Scan.Forward` is now `ScanWindow.Forward`.

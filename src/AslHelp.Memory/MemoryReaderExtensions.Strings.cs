@@ -14,6 +14,9 @@ public static partial class MemoryReaderExtensions
 
     private const int ChunkUnits = 64;
 
+    // Keeps a UTF-16 length in bytes within an int.
+    private const int MaxUnits = int.MaxValue / sizeof(char);
+
     // Sized so a UTF-16 string of the default length with its terminator stays on the stack.
     private const int StackBytes = (DefaultMaxChars + 1) * sizeof(char);
 
@@ -26,7 +29,8 @@ public static partial class MemoryReaderExtensions
         /// <param name="address">The address of the first character.</param>
         /// <param name="length">
         ///     The number of units to read, counted in bytes for <see cref="StringType.Ascii"/> and
-        ///     <see cref="StringType.Utf8"/> and in chars for <see cref="StringType.Utf16"/>.
+        ///     <see cref="StringType.Utf8"/>, in chars for <see cref="StringType.Utf16"/> and in the units of the
+        ///     picked encoding for <see cref="StringType.Auto"/>.
         /// </param>
         /// <param name="type">The encoding of the string.</param>
         /// <returns>
@@ -36,12 +40,21 @@ public static partial class MemoryReaderExtensions
         ///     The reader is <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        ///     <paramref name="length"/> is negative or <paramref name="type"/> isn't a defined value.
+        ///     <paramref name="length"/> is negative or above <see cref="int.MaxValue"/> / 2, or <paramref name="type"/>
+        ///     isn't a defined value.
         /// </exception>
         public Result<string> ReadString(Address address, int length, StringType type)
         {
             ArgumentNullException.ThrowIfNull(reader);
             ArgumentOutOfRangeException.ThrowIfNegative(length);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(length, MaxUnits);
+
+            var order = reader.Layout.ByteOrder;
+
+            if (type == StringType.Auto)
+            {
+                return ReadAuto(reader, address, length, order);
+            }
 
             int unit = UnitSize(type);
             using var scratch = new Scratch<byte>(stackalloc byte[StackBytes], length * unit);
@@ -54,7 +67,7 @@ public static partial class MemoryReaderExtensions
             }
 
             int units = IndexOfTerminator(bytes, unit);
-            return Decode(bytes, units == -1 ? length : units, type, reader.Layout.ByteOrder);
+            return Decode(bytes, units == -1 ? length : units, type, order);
         }
 
         /// <summary>
@@ -67,8 +80,8 @@ public static partial class MemoryReaderExtensions
         /// <param name="address">The address of the first character.</param>
         /// <param name="type">The encoding of the string.</param>
         /// <param name="maxLength">
-        ///     The largest number of units before the terminator, counted in bytes for <see cref="StringType.Ascii"/>
-        ///     and <see cref="StringType.Utf8"/> and in chars for <see cref="StringType.Utf16"/>.
+        ///     The largest number of units before the terminator, counted in chars for <see cref="StringType.Utf16"/>
+        ///     and in bytes for the other types. <see cref="StringType.Auto"/> reads UTF-8.
         /// </param>
         /// <returns>
         ///     The string on success, otherwise a failed result.
@@ -77,27 +90,38 @@ public static partial class MemoryReaderExtensions
         ///     The reader is <see langword="null"/>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        ///     <paramref name="maxLength"/> is negative or <paramref name="type"/> isn't a defined value.
+        ///     <paramref name="maxLength"/> is negative or above <see cref="int.MaxValue"/> / 2 - 1, or
+        ///     <paramref name="type"/> isn't a defined value.
         /// </exception>
         public Result<string> ReadString(Address address, StringType type, int maxLength = DefaultMaxChars)
         {
             ArgumentNullException.ThrowIfNull(reader);
             ArgumentOutOfRangeException.ThrowIfNegative(maxLength);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(maxLength, MaxUnits - 1);
+
+            // Read UTF-8, because a read without a length can't look ahead at bytes past the terminator.
+            if (type == StringType.Auto)
+            {
+                type = StringType.Utf8;
+            }
 
             int unit = UnitSize(type);
+            var order = reader.Layout.ByteOrder;
 
             // Reserves room for the terminator after the longest accepted string.
-            using var scratch = new Scratch<byte>(stackalloc byte[StackBytes], (maxLength + 1) * unit);
+            int end = (maxLength + 1) * unit;
+            using var scratch = new Scratch<byte>(stackalloc byte[StackBytes], end);
             var bytes = scratch.Buffer;
+
             int filled = 0;
+            int scanned = 0;
             int chunk = ChunkUnits;
 
-            while (filled < bytes.Length)
+            while (filled < end)
             {
-                int size = Math.Min(chunk * unit, bytes.Length - filled);
-                var slice = bytes.Slice(filled, size);
+                int size = Math.Min(chunk * unit, end - filled);
 
-                var read = reader.Read(address + filled, slice);
+                var read = reader.Read(address + filled, bytes.Slice(filled, size));
                 if (read.IsErr)
                 {
                     if (chunk == 1)
@@ -109,13 +133,16 @@ public static partial class MemoryReaderExtensions
                     continue;
                 }
 
-                int found = IndexOfTerminator(slice, unit);
+                filled += size;
+
+                int found = IndexOfTerminator(bytes[scanned..filled], unit);
                 if (found != -1)
                 {
-                    return Decode(bytes, (filled / unit) + found, type, reader.Layout.ByteOrder);
+                    return Decode(bytes, (scanned / unit) + found, type, order);
                 }
 
-                filled += size;
+                // Leaves a split UTF-16 char for the next read to complete.
+                scanned += (filled - scanned) / unit * unit;
             }
 
             return new UnterminatedStringError(address, maxLength);
@@ -130,6 +157,58 @@ public static partial class MemoryReaderExtensions
             StringType.Utf16 => sizeof(char),
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, SR.StringTypeNotDefined),
         };
+    }
+
+    private static Result<string> ReadAuto(IMemoryReader reader, Address address, int length, ByteOrder order)
+    {
+        // Looks at the first 2 chars, which take 4 bytes in UTF-16.
+        const int Sniffed = 2 * sizeof(char);
+
+        using var scratch = new Scratch<byte>(stackalloc byte[StackBytes], Math.Max(length * sizeof(char), Sniffed));
+        var bytes = scratch.Buffer;
+
+        int sniffed = length >= sizeof(char) ? Math.Max(length, Sniffed) : length;
+        var read = reader.Read(address, bytes[..sniffed]);
+
+        // Read only the length as UTF-8 when the 4 bytes run past readable memory, because a short string can end
+        // there.
+        if (read.IsErr && sniffed > length)
+        {
+            sniffed = length;
+            read = reader.Read(address, bytes[..sniffed]);
+        }
+
+        if (read.IsErr)
+        {
+            return read.Error;
+        }
+
+        var type = LooksLikeUtf16(bytes[..sniffed], order) ? StringType.Utf16 : StringType.Utf8;
+        int size = length * UnitSize(type);
+
+        // Read the rest of a UTF-16 string only after the guess, because a UTF-8 string can end at the end of readable
+        // memory.
+        if (size > sniffed)
+        {
+            read = reader.Read(address + sniffed, bytes[sniffed..size]);
+            if (read.IsErr)
+            {
+                return read.Error;
+            }
+        }
+
+        bytes = bytes[..size];
+        int units = IndexOfTerminator(bytes, UnitSize(type));
+        return Decode(bytes, units == -1 ? length : units, type, order);
+    }
+
+    // Take UTF-16 when the first 2 chars have a 0 high byte and a non-zero low byte, because Latin text in UTF-16
+    // looks like that and UTF-8 text never does before its terminator.
+    private static bool LooksLikeUtf16(ReadOnlySpan<byte> bytes, ByteOrder order)
+    {
+        return order == ByteOrder.LittleEndian
+            ? bytes is [not 0, 0, not 0, 0, ..]
+            : bytes is [0, not 0, 0, not 0, ..];
     }
 
     private static int IndexOfTerminator(ReadOnlySpan<byte> bytes, int unit)
