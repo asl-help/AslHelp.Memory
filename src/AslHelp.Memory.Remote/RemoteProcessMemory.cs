@@ -181,16 +181,24 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
                 return RemoteMemoryError.Unwritable(address, buffer.Length);
             }
 
+            // Take the error before the restore, because the restore overwrites it.
             bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out written);
+            int writeError = success ? 0 : Marshal.GetLastWin32Error();
 
             if (!protection.TryRestore(out nuint refusedAt, out int restoreError))
             {
                 _log.LogWarning($"{SR.FormatWritePageStaysWritable(new Address(refusedAt), new Win32Exception(restoreError).Message)}");
             }
 
-            return success && written == (nuint)buffer.Length
-                ? Result.Ok()
-                : RemoteMemoryError.Unwritable(address, buffer.Length);
+            if (!success)
+            {
+                var refused = RemoteMemoryError.WriteRefused(address, buffer.Length, new Win32Exception(writeError).Message);
+                _log.LogTrace($"{refused.Message}");
+
+                return refused;
+            }
+
+            return written == (nuint)buffer.Length ? Result.Ok() : RemoteMemoryError.Unwritable(address, buffer.Length);
         }
         catch (ObjectDisposedException)
         {

@@ -96,4 +96,7 @@
   <data name="WritePageStaysWritable" xml:space="preserve">
     <value>The page at {0} stays writable after a write: {1}</value>
   </data>
+  <data name="WriteRefused" xml:space="preserve">
+    <value>Couldn't write {0} bytes at {1}. {2}</value>
+  </data>
 </root>

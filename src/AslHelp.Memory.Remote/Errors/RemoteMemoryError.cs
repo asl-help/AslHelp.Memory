@@ -53,6 +53,20 @@ internal sealed record RemoteMemoryError : ResultError
     }
 
     /// <summary>
+    ///     Creates the error for a write Windows refused after the pages were made writable.
+    /// </summary>
+    /// <param name="address">The address of the first byte.</param>
+    /// <param name="size">The number of bytes.</param>
+    /// <param name="reason">The system message for the failure.</param>
+    /// <returns>
+    ///     The error.
+    /// </returns>
+    public static RemoteMemoryError WriteRefused(Address address, int size, string reason)
+    {
+        return new(SR.FormatWriteRefused(size, address, reason));
+    }
+
+    /// <summary>
     ///     Creates the error for a region query Windows refused.
     /// </summary>
     /// <param name="address">The address of the refused query.</param>

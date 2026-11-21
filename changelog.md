@@ -45,7 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `RemoteProcessMemory.GetRegions` fails when Windows refuses a region query instead of returning the regions up to that address, so a scan doesn't report a miss for memory it never saw.
 - `RemoteProcessMemory.GetModules` gives a 32-bit process the SysWOW64 paths of its system modules, so `GetFileHash` and `GetFileVersion` read the file the process loaded.
 - `RemoteProcessMemory.GetModules` and `GetMainModule` take the name of a module from its path when Windows refuses its base name, instead of leaving the module out.
-- `RemoteProcessMemory.Write` makes a read-only or code page writable when Windows refuses the write and puts its protection back after it.
+- `RemoteProcessMemory.Write` makes a read-only or code page writable when Windows refuses the write and puts its protection back after it. A write Windows still refuses keeps the system message in its error.
 - A failed read of `RemoteProcessMemory` keeps the system message and the number of bytes Windows read in its error, so `Watcher.Error` gives the reason for the failed read.
 - `MergeReadable` and `Scan.ScanRegions` count an execute-only region as readable, so a scan finds a match in a `PAGE_EXECUTE` region.
 
