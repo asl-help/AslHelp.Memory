@@ -40,14 +40,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - The errors for a missing string terminator, scan pattern, pool slot and export table now read `doesn't have a` instead of `has no`.
 
 ### Fixed
-- `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write, so a process that refuses writes can still be read.
-- `RemoteProcessMemory` returns an error after `Dispose` instead of throwing `ObjectDisposedException`, so a read never throws when the game exits during a tick.
-- `RemoteProcessMemory.GetRegions` fails when Windows refuses a region query instead of returning the regions up to that address, so a scan doesn't report a miss for memory it never saw.
-- `RemoteProcessMemory.GetModules` gives a 32-bit process the SysWOW64 paths of its system modules, so `GetFileHash` and `GetFileVersion` read the file the process loaded.
+- `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write. A process that refuses writes can still be read.
+- `RemoteProcessMemory` returns an error after `Dispose` instead of throwing `ObjectDisposedException`. A watcher that reads while the game exits gets that error.
+- `RemoteProcessMemory.GetRegions` fails when Windows refuses a region query instead of returning the regions up to that address.
+- `RemoteProcessMemory.GetModules` gives a 32-bit process the SysWOW64 paths of its system modules, which are the files `GetFileHash` and `GetFileVersion` need to read.
 - `RemoteProcessMemory.GetMainModule`, and `GetModules` when Windows refuses the module snapshot, take the name of a module from its path when Windows refuses its base name, instead of leaving the module out.
 - `RemoteProcessMemory.Write` makes a read-only or code page writable when Windows refuses the write and puts its protection back after it. A write Windows still refuses keeps the system message in its error.
-- A failed read of `RemoteProcessMemory` keeps the system message and the number of bytes Windows read in its error, so `Watcher.Error` gives the reason for the failed read.
-- `MergeReadable` and `Scan.ScanRegions` count an execute-only region as readable, so a scan finds a match in a `PAGE_EXECUTE` region.
+- A failed read of `RemoteProcessMemory` keeps the system message and the number of bytes Windows read in its error. `Watcher.Error` shows both.
+- `MergeReadable` and `Scan.ScanRegions` count an execute-only `PAGE_EXECUTE` region as readable.
 
 ## [0.1.0-alpha.1] - 2026-10-25
 
