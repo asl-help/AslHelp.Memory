@@ -1,6 +1,8 @@
+using AslHelp.Logging;
 using AslHelp.Memory.Remote.Errors;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -193,6 +195,20 @@ public class RemoteProcessMemoryTests
         Assert.That(error.Message, Is.EqualTo("Read only 3 of 8 bytes at 0x1000."));
     }
 
+    // A failed read logs the message of its error at trace level.
+    [Test]
+    public void Read_WithALogger_LogsTheFailedRead()
+    {
+        RecordingSink sink = new();
+        using Logger logger = new();
+        logger.Add(sink);
+        using RemoteProcessMemory memory = new(_process, logger);
+
+        var error = memory.Read(new Address(0x10), new byte[4]).UnwrapErr();
+
+        Assert.That(sink.Messages, Is.EqualTo([error.Message]));
+    }
+
     // Write to an unmapped low address returns an error instead of throwing.
     [Test]
     public void Write_UnmappedAddress_ReturnsAnError()
@@ -226,5 +242,21 @@ public class RemoteProcessMemoryTests
     private static Address GetAddress(GCHandle handle)
     {
         return new((ulong)handle.AddrOfPinnedObject());
+    }
+}
+
+file sealed class RecordingSink : ILogSink
+{
+    public List<string> Messages { get; } = [];
+
+    public LogLevel MinimumLevel => LogLevel.Trace;
+
+    public void Emit(in LogEvent e, int indent)
+    {
+        Messages.Add(e.Message);
+    }
+
+    public void Dispose()
+    {
     }
 }

@@ -15,6 +15,9 @@
   <data name="MainModuleNotListed" xml:space="preserve">
     <value>Windows didn't list the executable of the process. Try again once the process is up.</value>
   </data>
+  <data name="ModuleSnapshotRefused" xml:space="preserve">
+    <value>module snapshot refused: {0}</value>
+  </data>
   <data name="ModulesUnavailable" xml:space="preserve">
     <value>Couldn't list the modules of the process. {0}</value>
   </data>
@@ -69,6 +72,9 @@
   <data name="ReadIncomplete" xml:space="preserve">
     <value>Read only {0} of {1} bytes at {2}.</value>
   </data>
+  <data name="RegionsEnded" xml:space="preserve">
+    <value>regions ended at {0}</value>
+  </data>
   <data name="RegionsUnavailable" xml:space="preserve">
     <value>Couldn't list the regions at {0}. {1}</value>
   </data>
@@ -83,5 +89,11 @@
   </data>
   <data name="WriteHandleRefused" xml:space="preserve">
     <value>The process refused a handle for writes. {0}</value>
+  </data>
+  <data name="WriteNotMadeWritable" xml:space="preserve">
+    <value>write not made writable: {0} {1}</value>
+  </data>
+  <data name="WritePageStaysWritable" xml:space="preserve">
+    <value>The page at {0} stays writable after a write: {1}</value>
   </data>
 </root>

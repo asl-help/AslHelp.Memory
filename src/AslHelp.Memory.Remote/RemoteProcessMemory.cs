@@ -1,3 +1,4 @@
+using AslHelp.Logging;
 using AslHelp.Memory.Remote.Errors;
 using AslHelp.Memory.Remote.Win32;
 using Microsoft.Win32.SafeHandles;
@@ -33,6 +34,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     private const int MaxPathLength = 32767;
 
     private readonly SafeFileHandle _handle;
+    private readonly Logger _log;
 
     // Opens on the 1st write, because a process that refuses the rights to write can still be read.
     private SafeFileHandle? _writeHandle;
@@ -42,6 +44,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     ///     <paramref name="process"/> for reads.
     /// </summary>
     /// <param name="process">The process to open.</param>
+    /// <param name="log">The logger for failed reads, writes and listings. Omitting it logs nothing.</param>
     /// <exception cref="ArgumentNullException">
     ///     <paramref name="process"/> is <see langword="null"/>.
     /// </exception>
@@ -51,9 +54,13 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     /// <exception cref="Win32Exception">
     ///     The process couldn't be opened for reads or its bitness couldn't be found.
     /// </exception>
-    public RemoteProcessMemory(Process process)
+    public RemoteProcessMemory(
+        Process process,
+        Logger? log = null)
     {
         ArgumentNullException.ThrowIfNull(process);
+
+        _log = log ?? new Logger();
 
         int id = process.Id;
         ProcessId = (uint)id;
@@ -109,14 +116,18 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         try
         {
-            if (!PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read))
+            bool success = PInvoke.ReadProcessMemory(_handle, pointer, buffer, out nuint read);
+            int win32Error = success ? 0 : Marshal.GetLastWin32Error();
+
+            if (success && read == (nuint)buffer.Length)
             {
-                return new RemoteUnreadableError(address, buffer.Length, Marshal.GetLastWin32Error(), read);
+                return Result.Ok();
             }
 
-            return read == (nuint)buffer.Length
-                ? Result.Ok()
-                : new RemoteUnreadableError(address, buffer.Length, 0, read);
+            RemoteUnreadableError error = new(address, buffer.Length, win32Error, read);
+            _log.LogTrace($"{error.Message}");
+
+            return error;
         }
         catch (ObjectDisposedException)
         {
@@ -127,8 +138,8 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     A write that Windows refuses makes each page writable for the write and puts its protection back after it. A
-    ///     code page keeps its execute right during the write.
+    ///     A write that Windows refuses, like one to a read-only page, makes each page writable for the write and puts its
+    ///     protection back after it. A code page keeps its execute right during the write.
     /// </remarks>
     public unsafe Result Write(Address address, ReadOnlySpan<byte> buffer)
     {
@@ -149,7 +160,10 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         if (!TryOpenForWrites(out var writeHandle, out int openError))
         {
-            return RemoteMemoryError.WriteHandleRefused(new Win32Exception(openError).Message);
+            var refused = RemoteMemoryError.WriteHandleRefused(new Win32Exception(openError).Message);
+            _log.LogDebug($"{refused.Message}");
+
+            return refused;
         }
 
         try
@@ -161,13 +175,18 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
                 return written == (nuint)buffer.Length ? Result.Ok() : RemoteMemoryError.Unwritable(address, buffer.Length);
             }
 
-            if (!PageProtection.TryMakeWritable(writeHandle, (nuint)pointer, buffer.Length, out var protection, out _))
+            if (!PageProtection.TryMakeWritable(writeHandle, (nuint)pointer, buffer.Length, out var protection, out int protectError))
             {
+                _log.LogTrace($"{SR.FormatWriteNotMadeWritable(address, new Win32Exception(protectError).Message)}");
                 return RemoteMemoryError.Unwritable(address, buffer.Length);
             }
 
             bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out written);
-            _ = protection.TryRestore(out _, out _);
+
+            if (!protection.TryRestore(out nuint refusedAt, out int restoreError))
+            {
+                _log.LogWarning($"{SR.FormatWritePageStaysWritable(new Address(refusedAt), new Win32Exception(restoreError).Message)}");
+            }
 
             return success && written == (nuint)buffer.Length
                 ? Result.Ok()
@@ -221,6 +240,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
                 // scan that found nothing.
                 if (error == InvalidParameter)
                 {
+                    _log.LogDebug($"{SR.FormatRegionsEnded(address)}");
                     break;
                 }
 
@@ -299,6 +319,7 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
         // Leave a refused snapshot to the process handle, because Windows refuses it while a process starts.
         if (snapshot.IsInvalid || !PInvoke.Module32FirstW(snapshot, ref entry))
         {
+            _log.LogDebug($"{SR.FormatModuleSnapshotRefused(new Win32Exception(Marshal.GetLastWin32Error()).Message)}");
             return null;
         }
 
