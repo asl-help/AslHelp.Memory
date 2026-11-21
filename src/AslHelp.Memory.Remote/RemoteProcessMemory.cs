@@ -24,7 +24,10 @@ namespace AslHelp.Memory.Remote;
 public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryRegionProvider, IMemoryModuleProvider, IDisposable
 {
     private const PROCESS_ACCESS_RIGHTS ReadAccess = PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_INFORMATION | PROCESS_ACCESS_RIGHTS.PROCESS_VM_READ;
-    private const PROCESS_ACCESS_RIGHTS WriteAccess = PROCESS_ACCESS_RIGHTS.PROCESS_VM_OPERATION | PROCESS_ACCESS_RIGHTS.PROCESS_VM_WRITE;
+    private const PROCESS_ACCESS_RIGHTS WriteAccess =
+        PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_INFORMATION
+        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_OPERATION
+        | PROCESS_ACCESS_RIGHTS.PROCESS_VM_WRITE;
 
     // The longest path the wide Windows APIs accept, in characters.
     private const int MaxPathLength = 32767;
@@ -120,6 +123,10 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    ///     A write that Windows refuses makes each page writable for the write and puts its protection back after it. A
+    ///     code page keeps its execute right during the write.
+    /// </remarks>
     public unsafe Result Write(Address address, ReadOnlySpan<byte> buffer)
     {
         if (_handle.IsClosed)
@@ -144,7 +151,20 @@ public sealed class RemoteProcessMemory : IMemoryReader, IMemoryWriter, IMemoryR
 
         try
         {
-            bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out nuint written);
+            // Try the write as it is first, because a writable page needs no protection change and code a thread runs
+            // keeps its rights.
+            if (PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out nuint written))
+            {
+                return written == (nuint)buffer.Length ? Result.Ok() : RemoteMemoryError.Unwritable(address, buffer.Length);
+            }
+
+            if (!PageProtection.TryMakeWritable(writeHandle, (nuint)pointer, buffer.Length, out var protection, out _))
+            {
+                return RemoteMemoryError.Unwritable(address, buffer.Length);
+            }
+
+            bool success = PInvoke.WriteProcessMemory(writeHandle, pointer, buffer, out written);
+            _ = protection.TryRestore(out _, out _);
 
             return success && written == (nuint)buffer.Length
                 ? Result.Ok()

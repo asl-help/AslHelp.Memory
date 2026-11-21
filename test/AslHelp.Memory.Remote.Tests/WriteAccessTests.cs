@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.AccessControl;
@@ -34,6 +35,32 @@ public class WriteAccessTests
             Assert.That(write.TryUnwrapErr(out var error), Is.True);
             Assert.That(error?.Message, Does.Contain("refused a handle for writes"));
         }
+    }
+
+    // A write to a read-only page lifts the protection for the write and puts it back, because Windows only lifts it
+    // for code pages on its own.
+    [Test]
+    public void Write_ReadOnlyPage_WritesAndKeepsTheProtection()
+    {
+        using var child = FixtureChild.Start();
+        var headers = child.Memory.GetMainModule().Unwrap().Range.Start;
+        byte[] bytes = new byte[8];
+        child.Memory.Read(headers, bytes).Unwrap();
+
+        var before = ProtectionAt(child, headers);
+        var write = child.Memory.Write(headers, bytes);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(before, Is.EqualTo(MemoryProtection.Read));
+            Assert.That(write.IsOk, Is.True);
+            Assert.That(ProtectionAt(child, headers), Is.EqualTo(before));
+        }
+    }
+
+    private static MemoryProtection ProtectionAt(FixtureChild child, Address address)
+    {
+        return child.Memory.GetRegions(new(address, 1)).Unwrap().Single(region => region.Range.Contains(address)).Protection;
     }
 
     private sealed class ProcessSecurity : NativeObjectSecurity
