@@ -32,6 +32,20 @@ public class ScanStepTests
         Assert.That(found, Is.Empty);
     }
 
+    // A negative window is empty, so a size computed below 0 finds nothing instead of throwing.
+    [TestCase(-1)]
+    [TestCase(int.MinValue)]
+    public void ScanRange_ANegativeWindow_FindsNothing(int size)
+    {
+        BufferMemory memory = new(_base, [0x99, 0xAB, 0xCD, 0x99], MemoryLayout.X64);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Forward(size).Create("99")), Is.Empty);
+            Assert.That(Scan.ScanRange(memory, memory.Range, Scan.Create("AB CD"), ScanWindow.Backward(size).Create("99")), Is.Empty);
+        }
+    }
+
     // A Backward step searches behind the previous match.
     [Test]
     public void ScanRange_ABackwardStep_SearchesBehindTheMatch()

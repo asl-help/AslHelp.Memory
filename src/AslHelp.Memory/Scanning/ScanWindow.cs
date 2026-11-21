@@ -22,35 +22,25 @@ public readonly record struct ScanWindow
     /// <summary>
     ///     Creates a window of <paramref name="size"/> bytes that starts at the previous step's match.
     /// </summary>
-    /// <param name="size">The number of bytes to search.</param>
+    /// <param name="size">The number of bytes to search. A negative size gives an empty window.</param>
     /// <returns>
     ///     The window, which <see cref="Create(string)"/> turns into a step.
     /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    ///     <paramref name="size"/> is negative.
-    /// </exception>
     public static ScanWindow Forward(int size)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(size);
-
-        return new(ScanStepKind.Forward, size);
+        return new(ScanStepKind.Forward, Math.Max(size, 0));
     }
 
     /// <summary>
     ///     Creates a window of <paramref name="size"/> bytes that ends at the previous step's match.
     /// </summary>
-    /// <param name="size">The number of bytes to search.</param>
+    /// <param name="size">The number of bytes to search. A negative size gives an empty window.</param>
     /// <returns>
     ///     The window, which <see cref="Create(string)"/> turns into a step.
     /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    ///     <paramref name="size"/> is negative.
-    /// </exception>
     public static ScanWindow Backward(int size)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(size);
-
-        return new(ScanStepKind.Backward, size);
+        return new(ScanStepKind.Backward, Math.Max(size, 0));
     }
 
     /// <summary>

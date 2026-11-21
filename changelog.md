@@ -47,6 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - The errors for a missing scan pattern, pool slot and export table now read `doesn't have a` instead of `has no`.
 
 ### Fixed
+- `ScanWindow.Forward` and `Backward` with a negative size give an empty window that finds nothing instead of throwing.
 - `ReadString` up to a terminator cuts a string without a terminator within `maxLength` after `maxLength` units instead of failing.
 - `Read` and `ReadArray` read `nint` and `nuint` as pointers of the layout's pointer size instead of failing, which makes `MemoryWatcher<nint>` work.
 - `RemoteProcessMemory` opens a process with the rights to read only and asks for the rights to write on the 1st write. A process that refuses writes can still be read.
