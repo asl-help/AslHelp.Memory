@@ -10,6 +10,33 @@ public class ScanTests
 {
     private static readonly Address _base = new(0x1000);
 
+    // ScanBuffer returns the offset of every match, overlapping ones included.
+    [Test]
+    public void ScanBuffer_OverlappingMatches_ReturnsEveryOffset()
+    {
+        byte[] bytes = [0x00, 0xAA, 0xAA, 0xAA, 0x00];
+
+        Assert.That(Scan.ScanBuffer(bytes, ScanPattern.Parse("AA AA")), Is.EqualTo([1, 2]));
+    }
+
+    // ScanBuffer counts offsets from the start of the slice it gets.
+    [Test]
+    public void ScanBuffer_ASlice_CountsFromTheSlice()
+    {
+        byte[] bytes = [0xAB, 0xCD, 0x00, 0xAB, 0xCD];
+
+        Assert.That(Scan.ScanBuffer(bytes.AsMemory(2), ScanPattern.Parse("AB ?D")), Is.EqualTo([1]));
+    }
+
+    // ScanBuffer finds nothing in a buffer shorter than the pattern.
+    [Test]
+    public void ScanBuffer_ShorterThanThePattern_FindsNothing()
+    {
+        byte[] bytes = [0xAB];
+
+        Assert.That(Scan.ScanBuffer(bytes, ScanPattern.Parse("AB CD")), Is.Empty);
+    }
+
     // A single match is returned at its address.
     [Test]
     public void ScanRange_OneMatch_ReturnsItsAddress()

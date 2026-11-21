@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - `MemoryModule.GetFileHash` for the SHA256 of the module file. Each `MemoryModule` reads the file once.
 - `MemoryModule.GetFileVersion` and `ModuleFileVersion` for the file version text and the fixed file version in the version resource of the module file. Each `MemoryModule` reads the file once.
 - `Scan.ScanRegions` with a `MemoryRange` for scanning only the readable regions inside it.
+- `Scan.ScanBuffer` for the offsets of a pattern in bytes that are already read.
 - `Watcher.Error` for the error of the latest read, so a failed read under `FailAction.Clear` or `KeepOld` still shows why it failed. A `Read` that throws sets it to an `ExceptionError`, applies `FailAction` to the values and throws its exception again.
 - `Watcher.Current` and `Old` for the values as `object`. An unchanged value keeps its box. `Changed` moved up from `Watcher<T>`.
 - `Watcher.Ticks` for the tick counter of a derived watcher.

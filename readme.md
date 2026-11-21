@@ -52,7 +52,7 @@ foreach (var address in Scan.ScanRange(memory, module.Range, step))
 }
 ```
 
-`Scan.ScanRegions` searches every readable region of the process. With a range it only searches the regions inside it. `ScanWindow.Forward(n)` and `ScanWindow.Backward(n)` make a window of n bytes around the previous step's match. `Create` on that window makes the step.
+`Scan.ScanRegions` searches every readable region of the process. With a range it only searches the regions inside it. `ScanWindow.Forward(n)` and `ScanWindow.Backward(n)` make a window of n bytes around the previous step's match. `Create` on that window makes the step. `Scan.ScanBuffer` searches bytes you already have and returns the offsets of the matches.
 
 ### Exports
 

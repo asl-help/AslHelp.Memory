@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace AslHelp.Memory.Scanning;
 
 /// <summary>
-///     Provides pattern scans over an <see cref="IMemoryReader"/>.
+///     Provides pattern scans over an <see cref="IMemoryReader"/> or a buffer.
 /// </summary>
 /// <remarks>
 ///     Matches are yielded lazily in ascending order, so taking the first match stops the scan there. A chunk that
@@ -67,6 +67,35 @@ public static class Scan
         ArgumentNullException.ThrowIfNull(reader);
 
         return ScanChunks(reader, range, pattern);
+    }
+
+    /// <summary>
+    ///     Searches <paramref name="buffer"/> for <paramref name="pattern"/>.
+    /// </summary>
+    /// <param name="buffer">The bytes to search.</param>
+    /// <param name="pattern">The pattern to search for.</param>
+    /// <returns>
+    ///     The offsets in <paramref name="buffer"/> the pattern matches at.
+    /// </returns>
+    public static IEnumerable<int> ScanBuffer(ReadOnlyMemory<byte> buffer, ScanPattern pattern)
+    {
+        if (pattern.Length == 0)
+        {
+            yield break;
+        }
+
+        for (int from = 0; from + pattern.Length <= buffer.Length;)
+        {
+            int hit = pattern.IndexOf(buffer.Span[from..]);
+            if (hit < 0)
+            {
+                yield break;
+            }
+
+            from += hit;
+            yield return from;
+            from++;
+        }
     }
 
     /// <summary>
@@ -354,17 +383,9 @@ public static class Scan
                 yield break;
             }
 
-            for (int from = 0; ;)
+            foreach (int offset in ScanBuffer(buffer.AsMemory(0, size), pattern))
             {
-                int hit = pattern.IndexOf(buffer.AsSpan(from, size - from));
-                if (hit < 0)
-                {
-                    yield break;
-                }
-
-                from += hit;
-                yield return window.Start + from;
-                from++;
+                yield return window.Start + offset;
             }
         }
         finally
