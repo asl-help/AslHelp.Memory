@@ -1,5 +1,7 @@
 using NUnit.Framework;
+using System;
 using System.IO;
+using System.Reflection;
 
 namespace AslHelp.Memory.Tests;
 
@@ -135,6 +137,111 @@ public class MemoryModuleTests
         var copy = hashed with { Path = WriteFile("other.bin", "") };
 
         Assert.That(copy.GetFileHash().Unwrap(), Is.EqualTo(EmptyHash));
+    }
+
+    // The version is the file version the build stamps on the test assembly.
+    [Test]
+    public void GetFileVersion_TestAssembly_ReturnsItsFileVersion()
+    {
+        string text = typeof(MemoryModuleTests).Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()!.Version;
+        MemoryModule module = new("file.dll", CopyTestAssembly("file.dll"), _range);
+
+        Assert.That(module.GetFileVersion().Unwrap(), Is.EqualTo(new ModuleFileVersion(text, Version.Parse(text))));
+    }
+
+    // The numbers come from the fixed file version, because the text of a system file isn't a parsable version.
+    [Test]
+    [Platform("Win")]
+    public void GetFileVersion_SystemFile_ReturnsNumbersTheTextDoesNotParseTo()
+    {
+        string path = Path.Combine(Environment.SystemDirectory, "kernel32.dll");
+        MemoryModule module = new("kernel32.dll", path, _range);
+
+        var version = module.GetFileVersion().Unwrap();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Version.TryParse(version.Text, out _), Is.False);
+            Assert.That(version.Version.Major, Is.GreaterThan(0));
+        }
+    }
+
+    // A file without a version resource isn't an error, so it returns no text and 0.0.0.0.
+    [Test]
+    public void GetFileVersion_FileWithoutAVersionResource_ReturnsNullTextAndZeros()
+    {
+        MemoryModule module = new("file.bin", WriteFile("file.bin", "abc"), _range);
+
+        Assert.That(module.GetFileVersion().Unwrap(), Is.EqualTo(new ModuleFileVersion(null, new Version(0, 0, 0, 0))));
+    }
+
+    // The 1st version is kept, so a file changed on disk later doesn't change it.
+    [Test]
+    public void GetFileVersion_CalledAgainAfterTheFileChanged_ReturnsTheFirstVersion()
+    {
+        string path = CopyTestAssembly("file.dll");
+        MemoryModule module = new("file.dll", path, _range);
+
+        var first = module.GetFileVersion().Unwrap();
+        File.WriteAllText(path, "abc");
+
+        Assert.That(module.GetFileVersion().Unwrap(), Is.SameAs(first));
+    }
+
+    // A missing file returns an error with its path.
+    [Test]
+    public void GetFileVersion_MissingFile_ReturnsAnErrorWithThePath()
+    {
+        string path = Path.Combine(_folder, "missing.dll");
+        MemoryModule module = new("missing.dll", path, _range);
+
+        Assert.That(module.GetFileVersion().UnwrapErr().Message, Does.Contain(path));
+    }
+
+    // A module without a path returns an error with its name.
+    [Test]
+    public void GetFileVersion_NoPath_ReturnsAnErrorWithTheName()
+    {
+        MemoryModule module = new("file.dll", null, _range);
+
+        Assert.That(module.GetFileVersion().UnwrapErr().Message, Does.Contain("'file.dll'"));
+    }
+
+    // The kept version isn't part of equality, so a read module still equals an equal one that wasn't read.
+    [Test]
+    public void Equals_OneModuleWithItsVersionRead_StillEqualsAnUnreadModule()
+    {
+        string path = CopyTestAssembly("file.dll");
+        MemoryModule read = new("file.dll", path, _range);
+        MemoryModule other = new("file.dll", path, _range);
+
+        _ = read.GetFileVersion();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(read, Is.EqualTo(other));
+            Assert.That(read.GetHashCode(), Is.EqualTo(other.GetHashCode()));
+        }
+    }
+
+    // A copy made with another path reads its own file instead of keeping the version of the original.
+    [Test]
+    public void GetFileVersion_ACopyWithAnotherPath_ReadsTheOtherFile()
+    {
+        MemoryModule read = new("file.dll", CopyTestAssembly("file.dll"), _range);
+        _ = read.GetFileVersion();
+
+        var copy = read with { Path = WriteFile("other.bin", "abc") };
+
+        Assert.That(copy.GetFileVersion().Unwrap().Text, Is.Null);
+    }
+
+    private string CopyTestAssembly(string name)
+    {
+        string path = Path.Combine(_folder, name);
+        File.Copy(typeof(MemoryModuleTests).Assembly.Location, path);
+
+        return path;
     }
 
     private string WriteFile(string name, string text)

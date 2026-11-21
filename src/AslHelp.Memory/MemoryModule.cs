@@ -1,5 +1,6 @@
 using AslHelp.Memory.Errors;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 
@@ -17,8 +18,9 @@ public sealed record MemoryModule(
     MemoryRange Range)
 {
     private string? _fileHash;
+    private ModuleFileVersion? _fileVersion;
 
-    // Copies only the positional values, so a copy made with `with` hashes its own file.
+    // Copies only the positional values, so a copy made with `with` reads its own file.
     private MemoryModule(MemoryModule original)
     {
         Name = original.Name;
@@ -67,10 +69,54 @@ public sealed record MemoryModule(
     }
 
     /// <summary>
+    ///     Gets the file version in the version resource of the module file.
+    /// </summary>
+    /// <remarks>
+    ///     Each instance reads the file once. Later calls return the same version, even when the file changed on disk since.
+    ///     An equal module from another <see cref="IMemoryModuleProvider.GetModules"/> call reads it again. A failure isn't
+    ///     kept, so the next call tries again.
+    /// </remarks>
+    /// <returns>
+    ///     The version on success, with <see cref="ModuleFileVersion.Text"/> <see langword="null"/> and
+    ///     <see cref="ModuleFileVersion.Version"/> 0.0.0.0 when the file doesn't have a version resource, otherwise a failed result when <see cref="Path"/> is <see langword="null"/>
+    ///     or the file couldn't be read.
+    /// </returns>
+    public Result<ModuleFileVersion> GetFileVersion()
+    {
+        if (_fileVersion is not null)
+        {
+            return _fileVersion;
+        }
+
+        if (Path is null)
+        {
+            return MemoryError.ModulePathUnknown(Name);
+        }
+
+        try
+        {
+            // Keep the file open while GetVersionInfo reads it, because GetVersionInfo returns an empty version for a file
+            // it can't open.
+            using FileStream stream = new(Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+            var info = FileVersionInfo.GetVersionInfo(Path);
+            string? text = string.IsNullOrEmpty(info.FileVersion) ? null : info.FileVersion;
+
+            _fileVersion = new(text, new Version(info.FileMajorPart, info.FileMinorPart, info.FileBuildPart, info.FilePrivatePart));
+            return _fileVersion;
+        }
+        // Catches ArgumentException and NotSupportedException too, because an empty or malformed path throws them.
+        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or UnauthorizedAccessException)
+        {
+            return MemoryError.ModuleFileUnreadable(Path, ex.Message);
+        }
+    }
+
+    /// <summary>
     ///     Determines whether <paramref name="other"/> has the same name, path and range.
     /// </summary>
     /// <remarks>
-    ///     The kept file hash isn't compared.
+    ///     The kept file hash and file version aren't compared.
     /// </remarks>
     /// <param name="other">The module to compare to.</param>
     /// <returns>
